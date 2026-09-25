@@ -436,8 +436,40 @@ ul,ol{list-style:none;}
   position:fixed; inset:0; z-index:10; pointer-events:none;
   display:grid; place-items:center;
   color:var(--ink);
+  --lw:clamp(150px,13vw,240px);            /* the mark's width */
 }
-.intro-mark svg{display:block;width:clamp(150px,13vw,240px);height:auto;
+/* The five sectors, lit beneath the mark while it holds. The mark stays the exact centre;
+   the row hangs just below it, never wider than the mark. */
+/* One continuous field of lamps: 5 glyphs × 7 columns = 35 columns spanning the sheet's
+   width, with the same spacing inside and between glyphs, so no gap breaks the row. */
+.intro-sectors{
+  --pitch:calc(var(--lw) / 34.6);                   /* 35 dots at .6 + 34 gaps at .4 */
+  --dot:calc(var(--pitch) * .6); --gap:calc(var(--pitch) * .4);
+  position:absolute;left:calc(50% - var(--lw) / 2);top:calc(50% + var(--lw) * 537 / 3584 / 2 + clamp(18px,2.4svh,28px));
+  width:var(--lw);
+  display:grid;grid-template-columns:repeat(5,auto);justify-content:space-between;column-gap:var(--gap);
+  animation:markIn 900ms var(--ease-out) both;
+}
+.intro-sectors .pglyph{grid-template-columns:repeat(7,var(--dot));gap:var(--gap);}
+.intro-sectors .pglyph i{width:var(--dot);height:var(--dot);}
+.intro-sectors .pglyph.lit i.on{animation-name:igniteBig;}
+.intro-sectors .pglyph.lit i.on.f{animation-name:igniteBigTry;}
+@keyframes igniteBig{
+  0%  {background:color-mix(in srgb, var(--ink) 13%, transparent);box-shadow:0 0 0 0 transparent;}
+  30% {background:var(--led);box-shadow:0 0 calc(var(--dot) * .9) calc(var(--dot) * .18) color-mix(in srgb, var(--led) 70%, transparent);}
+  100%{background:var(--led);box-shadow:0 0 calc(var(--dot) * .5) calc(var(--dot) * .06) color-mix(in srgb, var(--led) 42%, transparent);}
+}
+@keyframes igniteBigTry{
+  0%,12%{background:color-mix(in srgb, var(--ink) 13%, transparent);box-shadow:0 0 0 0 transparent;}
+  16%   {background:color-mix(in srgb, var(--led) 70%, transparent);box-shadow:0 0 calc(var(--dot) * .5) 0 color-mix(in srgb, var(--led) 40%, transparent);}
+  22%,40%{background:color-mix(in srgb, var(--ink) 13%, transparent);box-shadow:0 0 0 0 transparent;}
+  46%   {background:color-mix(in srgb, var(--led) 55%, transparent);box-shadow:0 0 calc(var(--dot) * .3) 0 color-mix(in srgb, var(--led) 30%, transparent);}
+  52%   {background:color-mix(in srgb, var(--ink) 20%, transparent);box-shadow:0 0 0 0 transparent;}
+  62%   {background:var(--led);box-shadow:0 0 calc(var(--dot) * .9) calc(var(--dot) * .18) color-mix(in srgb, var(--led) 70%, transparent);}
+  100%  {background:var(--led);box-shadow:0 0 calc(var(--dot) * .5) calc(var(--dot) * .06) color-mix(in srgb, var(--led) 42%, transparent);}
+}
+@media (prefers-reduced-motion:reduce){ .intro-sectors .pglyph.lit i.on,.intro-sectors .pglyph.lit i.on.f{animation-name:lampFade;} }
+.intro-mark svg{display:block;width:var(--lw);height:auto;
   animation:markIn 900ms var(--ease-out) both;}
 .intro-mark.is-out{opacity:0;filter:blur(6px);transform:scale(.985);
   transition:opacity 500ms ease, filter 500ms ease, transform 500ms ease;}
@@ -567,7 +599,7 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
 0 c-269 0 -340 -3 -336 -12z"/><path d="M14612 3823 l3 -268 983 -3 c540 -1 982 -4 982 -7 0 -3 -320 -391
 -712 -863 -392 -471 -753 -906 -803 -966 -49 -60 -174 -211 -277 -335 l-188
 -225 0 -253 0 -253 1420 0 1420 0 0 265 0 265 -1036 2 -1036 3 1006 1193 1006
-1193 0 259 0 260 -1385 0 -1385 0 2 -267z"/></g></svg></div>
+1193 0 259 0 260 -1385 0 -1385 0 2 -267z"/></g></svg><div class="intro-sectors" id="intro-sectors"></div></div>
 
 <div class="page">
   <aside class="marks" aria-label="Woza Labs">
@@ -882,6 +914,23 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
     agriculture:   ['...#...','.#.#.#.','..###..','.#.#.#.','..###..','...#...','...#...'],
     infrastructure:['...#...','.#####.','..#.#..','.#####.','..#.#..','.#...#.','#.....#']
   };
+  const introRow = document.getElementById('intro-sectors');
+  if (introRow) {
+    Object.keys(SG).forEach(k => {
+      const g = document.createElement('span');
+      g.className = 'pglyph';
+      SG[k].join('').split('').forEach(ch => {
+        const d = document.createElement('i');
+        if (ch === '#') {
+          d.className = Math.random() < 0.12 ? 'on f' : 'on';
+          d.style.setProperty('--d', Math.round(Math.random() * 650) + 'ms');
+        }
+        g.appendChild(d);
+      });
+      introRow.appendChild(g);
+    });
+    setTimeout(() => introRow.querySelectorAll('.pglyph').forEach(g => g.classList.add('lit')), 250);
+  }
   document.querySelectorAll('.pills li[data-g]').forEach(li => {
     const g = document.createElement('span');
     g.className = 'pglyph'; g.setAttribute('aria-hidden', 'true');
@@ -928,7 +977,7 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
       setTimeout(() => { document.body.classList.remove('boot'); introMark.remove(); }, 1400);
     }, reduce ? 250 : 420);
   }
-  setTimeout(reveal, reduce ? 900 : 1700);
+  setTimeout(reveal, reduce ? 1100 : 2400);   // long enough for the sector lamps to settle
   // Anyone in a hurry can skip it.
   ['keydown', 'pointerdown', 'wheel', 'touchstart'].forEach(t => addEventListener(t, reveal, { once: true, passive: true }));
   if (location.hash) reveal();
