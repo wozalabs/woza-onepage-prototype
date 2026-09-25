@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="v-new">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -110,7 +110,7 @@
    position indicator, the index and the studio's particulars,
    set like a specification. It stays put. The right half carries
    the chapters, each opened by a large figure whose tail sits a
-   step back. A ruler on the right edge fills as you read.
+   step back. A large index on the left follows as you read.
    ───────────────────────────────────────────────────────────── */
 @font-face{
   font-family:'Neue Montreal';
@@ -157,32 +157,6 @@ ul,ol{list-style:none;}
 
 /* ── Sheet furniture: hairline, divider, ruler ─────────────── */
 .sheet-lines{position:fixed;inset:0;pointer-events:none;z-index:2;}
-/* The ruler: one line per chapter, set flush against the right edge. Each line is
-   named; the one you are reading is lit in the accent and reaches furthest in, the ones
-   you have passed stay lit and short, the ones ahead are quiet. */
-.ruler{
-  position:fixed; z-index:3;
-  top:calc(var(--top) + var(--m)); bottom:var(--m); right:0;
-  display:flex; flex-direction:column; justify-content:space-between; align-items:flex-end;
-}
-.ruler a{
-  display:flex; align-items:center; gap:8px;
-  padding:6px 0 6px 8px;
-  color:var(--ink-2);
-  text-decoration:none;
-  transition:color 300ms ease;
-}
-.ruler a:hover{color:var(--ink);text-decoration:none;}
-.ruler__n{font-size:.86em;}
-.ruler i{
-  display:block; width:14px; height:1px;
-  background:var(--ink-3);
-  transform-origin:right center;
-  transition:width 500ms var(--ease-out), background-color 400ms ease;
-}
-.ruler a.is-past i{background:var(--accent);}
-.ruler a[aria-current="true"]{color:var(--ink);}
-.ruler a[aria-current="true"] i{width:28px;background:var(--accent);height:2px;}
 
 /* ── Window light, over everything ────────────────────────────
    Light palettes: the window's shadow, multiplied at 50%, so it falls across the
@@ -260,12 +234,12 @@ ul,ol{list-style:none;}
   position:sticky; top:0;
   isolation:isolate;
   height:100svh;
-  grid-column:1 / 5;                      /* four columns */
+  grid-column:1 / 4;                      /* three columns */
   padding:var(--top) 0 var(--m);
   display:grid;
   grid-template-rows:1fr auto auto auto;
 }
-.mark{display:block;width:calc((100% - var(--gut)) / 2);justify-self:start;align-self:start;color:var(--ink);margin-top:clamp(8px,1svh,16px);}
+.mark{display:block;width:calc((100% - 2 * var(--gut)) * 2 / 3 + var(--gut));justify-self:start;align-self:start;color:var(--ink);margin-top:clamp(8px,1svh,16px);}
 .mark svg{display:block;width:100%;height:auto;}
 .lower{align-self:end;display:grid;row-gap:clamp(34px,7svh,96px);}
 .spec{display:grid;grid-template-columns:repeat(4,1fr);column-gap:var(--gut);row-gap:clamp(22px,4.4svh,64px);}
@@ -309,7 +283,7 @@ ul,ol{list-style:none;}
 .seal{display:block;height:clamp(44px,3.4vw,58px);width:auto;}
 
 /* ── Right: the chapters ────────────────────────────────────── */
-.chapters{grid-column:5 / -1;position:relative;}   /* eight columns */
+.chapters{grid-column:4 / -1;position:relative;}   /* nine columns */
 .chapter{
   min-height:100svh;
   padding:calc(var(--top) + clamp(8px,1svh,16px)) 0 clamp(64px,12svh,160px);
@@ -323,10 +297,10 @@ ul,ol{list-style:none;}
   white-space:nowrap;
 }
 .figure .tail{color:var(--ink-3);}
-/* Eight columns, the same as the grid behind; content ends at column 7 so the eighth
-   column stays clear for the named ruler. */
-.body{margin-top:auto;display:grid;grid-template-columns:repeat(8,1fr);column-gap:var(--gut);row-gap:clamp(22px,3.6svh,48px);padding-top:clamp(40px,8svh,120px);}
-.body > *{grid-column:1 / 8;}
+/* Nine columns, the same as the grid behind; content ends at column 8 so the page's
+   twelfth column stays clear for the legal column. */
+.body{margin-top:auto;display:grid;grid-template-columns:repeat(9,1fr);column-gap:var(--gut);row-gap:clamp(22px,3.6svh,48px);padding-top:clamp(40px,8svh,120px);}
+.body > *{grid-column:1 / 9;}
 .headline{
   font-size:clamp(28px,2.9vw,56px);
   line-height:1.02;
@@ -336,15 +310,15 @@ ul,ol{list-style:none;}
 }
 .text{font-size:clamp(15px,1.1vw,21px);line-height:1.36;letter-spacing:0;max-width:46ch;}
 .text + .text{margin-top:.8em;}
-.col-l{grid-column:1 / 4;}
-.col-r{grid-column:5 / 8;}
+.col-l{grid-column:1 / 5;}
+.col-r{grid-column:5 / 9;}
 .k{color:var(--ink-2);}
 
 .pairs{display:grid;row-gap:clamp(16px,2.6svh,32px);}
-.pairs > div{display:grid;grid-template-columns:subgrid;grid-column:1 / 8;align-items:baseline;}
+.pairs > div{display:grid;grid-template-columns:subgrid;grid-column:1 / 9;align-items:baseline;}
 .pairs{display:grid;grid-template-columns:subgrid;}
 .pairs dt{grid-column:1 / 3;color:var(--ink-2);}
-.pairs dd{grid-column:3 / 8;}
+.pairs dd{grid-column:3 / 9;}
 .pairs.col-r > div{grid-column:1 / -1;}
 .pairs.col-r dt{grid-column:1 / 2;}
 .pairs.col-r dd{grid-column:2 / -1;}
@@ -360,18 +334,54 @@ ul,ol{list-style:none;}
 
 .figs{display:grid;}
 .figs li{
-  display:grid;grid-template-columns:repeat(6,1fr);column-gap:var(--m);align-items:end;
+  display:grid;grid-template-columns:repeat(8,1fr);column-gap:var(--gut);align-items:end;
   border-top:1px solid var(--rule);
   padding:clamp(10px,1.4svh,18px) 0 clamp(12px,1.8svh,22px);
 }
 .figs li:last-child{border-bottom:1px solid var(--rule);}
 .figs .n{grid-column:1 / 5;font-size:clamp(34px,3.6vw,70px);line-height:.9;letter-spacing:-.022em;white-space:nowrap;}
-.figs .who{grid-column:5 / 8;display:flex;flex-direction:column;}
+.figs .who{grid-column:5 / -1;display:flex;flex-direction:column;}
 .figs .who span:last-child{color:var(--ink-2);}
 
 .big-link{font-size:clamp(28px,2.9vw,56px);line-height:1;letter-spacing:-.018em;justify-self:start;}
 
 .foot{display:flex;flex-wrap:wrap;gap:.6em 1.6em;color:var(--ink-2);padding-top:clamp(40px,8svh,96px);}
+
+/* ── Layout comparison: Current ⇄ New ────────────────────────
+   New: a large index set in the left column, one line per chapter, the one you are
+   reading at full ink and the rest a step back. It replaces the ruler on the right
+   and the small index in the spec. */
+.menu{display:none;}
+.v-new .menu{display:flex;flex-direction:column;align-self:center;margin:clamp(24px,4svh,56px) 0;}
+.v-new .menu a{
+  display:flex;align-items:flex-start;gap:.12em;width:max-content;
+  font-size:clamp(34px,min(4.2vw,6.4svh),78px);line-height:1.02;letter-spacing:-.024em;
+  color:var(--ink-3);text-decoration:none;
+  transition:color 400ms ease;
+}
+.menu__n{font-size:var(--fs);letter-spacing:0;line-height:1;margin-top:.7em;color:var(--ink-2);transition:color 400ms ease;}
+.v-new .menu a[aria-current="true"],.v-new .menu a[aria-current="true"] .menu__n{color:var(--ink);}
+@media (hover:hover) and (pointer:fine){ .v-new .menu a:hover{color:var(--ink-2);} }
+.v-new .spec .idx{display:none;}
+.v-new .marks{grid-template-rows:auto 1fr auto auto auto;}
+/* New: the left column holds only the mark, the index and the clients. */
+.v-new .lower{display:none;}
+.v-new .menu{align-self:end;margin:clamp(32px,6svh,80px) 0 0;}
+/* The marquee gets room above and below so it can breathe. */
+.v-new .clients{margin-top:clamp(44px,8svh,112px);margin-bottom:clamp(20px,4svh,56px);}
+.v-new .menu a{font-size:clamp(34px,min(4.2vw,7svh),80px);line-height:1;}
+/* Privacy, Legal and the seals move to the twelfth column, set on the page's foot. */
+.v-new .base{
+  position:fixed; right:var(--m); bottom:var(--m); margin:0;
+  width:calc((100vw - 2 * var(--m) - 11 * var(--gut)) / 12);
+  flex-direction:column; align-items:center; justify-content:flex-end; gap:clamp(36px,6svh,60px);
+}
+/* One centred column: Privacy and Legal read upward, then GDPR over CCPA at equal width. */
+.v-new .base__links{flex-direction:column;align-items:center;gap:1.5em;line-height:1;}
+.v-new .base__links a{writing-mode:vertical-rl;transform:rotate(180deg);}
+.v-new .base .seals{flex-direction:column-reverse;align-items:center;gap:clamp(12px,2svh,20px);}
+.v-new .base .seal{width:clamp(44px,3.8vw,64px);height:auto;}
+
 
 /* ── Glyphs: a small matrix of lamps before each chapter ──────
    Eleven by eleven. Unlit lamps sit faintly in the matrix; the lit ones come on one by
@@ -418,8 +428,8 @@ ul,ol{list-style:none;}
 .intro-mark.is-out{opacity:0;filter:blur(6px);transform:scale(.985);
   transition:opacity 500ms ease, filter 500ms ease, transform 500ms ease;}
 @keyframes markIn{from{opacity:0;filter:blur(6px);transform:scale(.97);}}
-.intro .page,.intro .grid,.intro .ruler{opacity:0;}
-.grid,.ruler{transition:opacity 900ms ease;}
+.intro .page,.intro .grid{opacity:0;}
+.grid{transition:opacity 900ms ease;}
 @keyframes settle{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
 .boot .marks > *,.boot .chapter:first-child > *{animation:settle 800ms var(--ease-out) both;}
 .boot .marks > :nth-child(1){animation-delay:0ms;}
@@ -439,7 +449,7 @@ ul,ol{list-style:none;}
 /* ── Narrow and portrait: one column, marks first ───────────── */
 @media (max-width:900px), (orientation:portrait){
   .page{grid-template-columns:1fr;}
-  .ruler,.grid{display:none;}
+  .grid{display:none;}
   .marks{position:relative;height:auto;grid-template-rows:auto auto auto auto;row-gap:12vw;padding-top:10vw;padding-bottom:6vw;border-bottom:1px solid var(--rule);}
   .lower{row-gap:8vw;}
   .mark{width:clamp(120px,34vw,180px);}
@@ -453,6 +463,13 @@ ul,ol{list-style:none;}
   .figs .n{grid-column:1 / -1;}
   .figs .who{grid-column:1 / -1;margin-top:.5em;}
   .base{flex-wrap:wrap;}
+  .v-new .base{position:static;width:auto;flex-direction:row;align-items:flex-end;justify-content:space-between;margin-top:8vw;}
+  .v-new .base .seals{order:0;}
+  .v-new .base__links{flex-direction:row;gap:1.4em;}
+  .v-new .base__links a{writing-mode:horizontal-tb;transform:none;}
+  .v-new .base .seals{flex-direction:row;align-items:flex-end;}
+  .v-new .base .seal{width:auto;height:clamp(44px,3.4vw,58px);}
+  .v-new .clients{margin-bottom:0;}
 }
 </style>
 </head>
@@ -537,7 +554,6 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
 -712 -863 -392 -471 -753 -906 -803 -966 -49 -60 -174 -211 -277 -335 l-188
 -225 0 -253 0 -253 1420 0 1420 0 0 265 0 265 -1036 2 -1036 3 1006 1193 1006
 1193 0 259 0 260 -1385 0 -1385 0 2 -267z"/></g></svg></div>
-<nav class="ruler" id="ruler" aria-label="Chapters"></nav>
 
 <div class="page">
   <aside class="marks" aria-label="Woza Labs">
@@ -619,11 +635,20 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
 -225 0 -253 0 -253 1420 0 1420 0 0 265 0 265 -1036 2 -1036 3 1006 1193 1006
 1193 0 259 0 260 -1385 0 -1385 0 2 -267z"/></g></svg></a>
 
+    <nav class="menu" id="menu" aria-label="Chapters">
+      <a href="#thesis"><span>Thesis</span><span class="menu__n" aria-hidden="true">01</span></a>
+      <a href="#method"><span>Method</span><span class="menu__n" aria-hidden="true">02</span></a>
+      <a href="#about"><span>About</span><span class="menu__n" aria-hidden="true">03</span></a>
+      <a href="#impact"><span>Impact</span><span class="menu__n" aria-hidden="true">04</span></a>
+      <a href="#platforms"><span>Platforms</span><span class="menu__n" aria-hidden="true">05</span></a>
+      <a href="#contact"><span>Contact</span><span class="menu__n" aria-hidden="true">06</span></a>
+    </nav>
+
     <div class="lower">
       <!-- <p class="copy">© Woza Labs — 2026</p> -->
       <dl class="spec">
-        <dt>Index</dt>
-        <dd class="index" id="index">
+        <dt class="idx">Index</dt>
+        <dd class="index idx" id="index">
           <a href="#thesis">Thesis</a>
           <a href="#method">Method</a>
           <a href="#about">About</a>
@@ -765,20 +790,11 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
   'use strict';
   const chapters = [...document.querySelectorAll('.chapter')];
   const links = [...document.querySelectorAll('#index a')];
-  const ruler = document.getElementById('ruler');
 
-  // Ruler: one named row per chapter.
-  chapters.forEach((c, i) => {
-    const a = document.createElement('a');
-    a.href = '#' + c.id;
-    a.innerHTML = `<span class="ruler__n">${String(i).padStart(2, '0')}</span><span>${i ? c.dataset.name : 'Start'}</span><i aria-hidden="true"></i>`;
-    ruler.appendChild(a);
-  });
-  const rows = [...ruler.children];
-
+  const menuLinks = [...document.querySelectorAll('#menu a')];
   function mark(i) {
+    menuLinks.forEach((a, k) => a.setAttribute('aria-current', String(k === i - 1)));
     links.forEach((a, k) => a.setAttribute('aria-current', String(k === i - 1)));
-    rows.forEach((a, k) => { a.setAttribute('aria-current', String(k === i)); a.classList.toggle('is-past', k < i); });
   }
   let current = -1;
   const io = new IntersectionObserver(es => {
