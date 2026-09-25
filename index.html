@@ -330,7 +330,13 @@ ul,ol{list-style:none;}
   line-height:1;
   white-space:nowrap;
 }
-.pills li::before{content:'';display:inline-block;width:.46em;height:.46em;background:var(--accent);margin-right:.55em;vertical-align:.06em;}
+.pills li{display:inline-flex;align-items:center;gap:.6em;}
+/* Sector glyphs: 7×7 lamps, lit with the chapter. */
+.pglyph{display:inline-grid;grid-template-columns:repeat(7,2px);gap:1px;flex:none;}
+.pglyph i{width:2px;height:2px;border-radius:50%;background:color-mix(in srgb, var(--ink) 13%, transparent);}
+.pglyph.lit i.on{animation:ignite 900ms var(--d,0ms) cubic-bezier(.2,.7,.3,1) both;}
+.pglyph.lit i.on.f{animation:igniteTry 1500ms var(--d,0ms) linear both;}
+@media (prefers-reduced-motion:reduce){ .pglyph.lit i.on,.pglyph.lit i.on.f{animation:lampFade 400ms ease both;} }
 
 .figs{display:grid;}
 .figs li{
@@ -372,7 +378,10 @@ ul,ol{list-style:none;}
 .v-new .menu a{font-size:clamp(34px,min(4.2vw,7svh),80px);line-height:1;}
 /* Privacy, Legal and the seals move to the twelfth column, set on the page's foot. */
 .v-new .base{
-  position:fixed; right:var(--m); bottom:var(--m); margin:0;
+  position:fixed; right:var(--m); margin:0;
+  /* --axis: the marquee's bottom edge, measured from the viewport's bottom (set by the script).
+     The CCPA seal stands on it, as do the logos and the page's last line. */
+  bottom:max(var(--m), var(--axis, 40px));
   width:calc((100vw - 2 * var(--m) - 11 * var(--gut)) / 12);
   flex-direction:column; align-items:center; justify-content:flex-end; gap:clamp(36px,6svh,60px);
 }
@@ -380,7 +389,12 @@ ul,ol{list-style:none;}
 .v-new .base__links{flex-direction:column;align-items:center;gap:1.5em;line-height:1;}
 .v-new .base__links a{writing-mode:vertical-rl;transform:rotate(180deg);}
 .v-new .base .seals{flex-direction:column-reverse;align-items:center;gap:clamp(12px,2svh,20px);}
-.v-new .base .seal{width:clamp(44px,3.8vw,64px);height:auto;}
+:root{--seal-w:clamp(44px,3.8vw,64px);}
+.v-new .base .seal{width:var(--seal-w);height:auto;}
+@media (min-width:901px) and (orientation:landscape){
+  /* At the end of the page, the last line of the right column sits on the same axis. */
+  .chapter:last-child{padding-bottom:var(--axis, 64px);}
+}
 
 
 /* ── Glyphs: a small matrix of lamps before each chapter ──────
@@ -713,7 +727,7 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
       <p class="figure" aria-hidden="true">01<span class="tail">/06</span></p>
       <div class="body">
         <h2 class="headline" id="h-thesis">The next frontier isn’t digital. It’s physical.</h2>
-        <ul class="pills" aria-label="Sectors"><li>Energy</li><li>Water</li><li>Forests</li><li>Agriculture</li><li>Infrastructure</li></ul>
+        <ul class="pills" aria-label="Sectors"><li data-g="energy">Energy</li><li data-g="water">Water</li><li data-g="forests">Forests</li><li data-g="agriculture">Agriculture</li><li data-g="infrastructure">Infrastructure</li></ul>
       </div>
     </section>
 
@@ -777,7 +791,7 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
           <div><dt>Bilbao</dt><dd>BAT — Gran Vía 1, 48001, Bizkaia</dd></div>
           <div><dt>San Sebastián</dt><dd>Parke Mikeletegi 53, 20009, Gipuzkoa</dd></div>
           <div><dt>Phone</dt><dd><a href="tel:+34965023145">EU +34 965 02 31 45</a><br><a href="tel:+19296677718">US +1 929 667 7718</a></dd></div>
-          <div><dt>Elsewhere</dt><dd><a href="https://www.linkedin.com/company/woza-labs" target="_blank" rel="noopener">LinkedIn ↗</a>&ensp;<a href="https://x.com/wozalabs" target="_blank" rel="noopener">X ↗</a></dd></div>
+          <div><dt>Elsewhere</dt><dd><a href="https://www.linkedin.com/company/woza-labs" target="_blank" rel="noopener">LinkedIn</a>&ensp;<a href="https://x.com/wozalabs" target="_blank" rel="noopener">X</a></dd></div>
         </dl>
         <p class="foot"><span>© 2026 Woza Labs®</span><a href="#privacy">Privacy</a><a href="#legal">Legal</a></p>
       </div>
@@ -860,6 +874,42 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
     c.prepend(g);
     return g;
   });
+  // Sector glyphs, 7×7, placed before each sector's name.
+  const SG = {
+    energy:        ['....##.','...##..','..##...','.#####.','...##..','..##...','.##....'],
+    water:         ['...#...','..###..','.#####.','.#####.','#######','.#####.','..###..'],
+    forests:       ['...#...','..###..','.#####.','..###..','.#####.','#######','...#...'],
+    agriculture:   ['...#...','.#.#.#.','..###..','.#.#.#.','..###..','...#...','...#...'],
+    infrastructure:['...#...','.#####.','..#.#..','.#####.','..#.#..','.#...#.','#.....#']
+  };
+  document.querySelectorAll('.pills li[data-g]').forEach(li => {
+    const g = document.createElement('span');
+    g.className = 'pglyph'; g.setAttribute('aria-hidden', 'true');
+    SG[li.dataset.g].join('').split('').forEach(ch => {
+      const d = document.createElement('i');
+      if (ch === '#') {
+        d.className = Math.random() < 0.12 ? 'on f' : 'on';
+        d.style.setProperty('--d', Math.round(300 + Math.random() * 900) + 'ms');
+      }
+      g.appendChild(d);
+    });
+    li.prepend(g);
+    glyphs.push(g);
+  });
+
+  // The foot axis: the marquee's bottom edge. The CCPA seal and the page's last line stand on it.
+  const clientsEl = document.querySelector('.clients');
+  function setAxis() {
+    if (!clientsEl) return;
+    const r = clientsEl.getBoundingClientRect();
+    if (!r.height) return;
+    document.documentElement.style.setProperty('--axis', Math.round(innerHeight - r.bottom) + 'px');
+  }
+  setAxis();
+  addEventListener('resize', setAxis);
+  if (document.fonts) document.fonts.ready.then(setAxis);
+  setTimeout(setAxis, 3200);   // again once the arrival has settled
+
   const lampIO = new IntersectionObserver(es => es.forEach(e => {
     if (e.isIntersecting) { e.target.classList.add('lit'); lampIO.unobserve(e.target); }
   }), { rootMargin: '0px 0px -10% 0px' });
