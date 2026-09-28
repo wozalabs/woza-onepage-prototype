@@ -52,7 +52,7 @@
                                   : p.map(v => Math.round(v * SHADE * (1 - NOISE)));
   // The number plane puts up to DIGIT_ALPHA of ink behind any text, so every ratio is also
   // taken on that darker (light palettes) or lighter (dark palettes) ground.
-  const DIGIT_ALPHA = 0.11;
+  const DIGIT_ALPHA = 0.14;
   let INK = null;
   const plain = (a, b, dark) => Math.min(ratio(a, b), ratio(under(a, dark), under(b, dark)));
   const worst = (a, b, dark) => { const m = plain(a, b, dark); if (!INK) return m; const g = over(INK, b, DIGIT_ALPHA); return Math.min(m, plain(a, g, dark)); };
@@ -224,6 +224,7 @@ ul,ol{list-style:none;}
    over the page at .15 at most, so nowhere darkens past the strength the palette is
    verified against (×.849). On dark palettes the same group is screened: a soft
    patch of sun, baked at 10% and dithered, with the branches cutting through it. */
+.foliage{display:none !important;}   /* hidden for now */
 .foliage{
   position:fixed; inset:-6%; z-index:20; pointer-events:none;
   isolation:isolate; mix-blend-mode:multiply; opacity:.15;
@@ -251,6 +252,9 @@ ul,ol{list-style:none;}
   mix-blend-mode:multiply; opacity:.03;
 }
 .is-dark .grain{mix-blend-mode:screen;}
+/* Off for now: a full-screen blend layer over the live background costs a composite every
+   frame, and the background already carries its own film grain. */
+.grain{display:none;}
 
 /* ── The grid: 12 columns, 24px gutters, the sheet's margins ── */
 :root{--gut-px:24px;--gut:var(--gut-px);--fit:1;
@@ -599,6 +603,13 @@ a.row--link:hover .c-what,a.row--link:hover .c-outlet,a.row--link:hover .c-name{
   display:grid; grid-template-columns:repeat(11,2px); gap:2px;
   width:max-content; margin-bottom:clamp(14px,2svh,24px);
 }
+/* Desktop: the glyph and the section number share one row, glyph first. */
+@media (min-width:901px) and (orientation:landscape){
+  .chapter{display:grid;grid-template-columns:max-content 1fr;grid-template-rows:auto 1fr;column-gap:clamp(12px,1.1vw,20px);align-items:center;}
+  .chapter > .glyph{grid-column:1;grid-row:1;margin:0;}
+  .chapter > .figure{grid-column:2;grid-row:1;}
+  .chapter > .body{grid-column:1 / -1;grid-row:2;align-self:end;}
+}
 .glyph i{width:2px;height:2px;border-radius:50%;background:color-mix(in srgb, var(--ink) 13%, transparent);}
 .glyph.lit i.on{animation:ignite 900ms var(--d,0ms) cubic-bezier(.2,.7,.3,1) both;}
 .glyph.lit i.on.f{animation:igniteTry 1500ms var(--d,0ms) linear both;}
@@ -666,6 +677,11 @@ a.row--link:hover .c-what,a.row--link:hover .c-outlet,a.row--link:hover .c-name{
 .intro-mark.is-out{opacity:0;filter:blur(6px);transform:scale(.985);
   transition:opacity 500ms ease, filter 500ms ease, transform 500ms ease;}
 @keyframes markIn{from{opacity:0;filter:blur(6px);transform:scale(.97);}}
+/* The scene opens first: the mark and its lamps wait until the eye has settled in the nave. */
+@media (prefers-reduced-motion:no-preference){
+  .intro-mark svg,.intro-sectors{animation-delay:3200ms;}
+  .intro-sectors .pglyph.lit i.on{animation-delay:calc(var(--d, 0ms) + 3400ms);}
+}
 .intro .page,.intro .grid{opacity:0;}
 .grid{transition:opacity 900ms ease;}
 @keyframes settle{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
@@ -693,7 +709,7 @@ a.row--link:hover .c-what,a.row--link:hover .c-outlet,a.row--link:hover .c-name{
   .grid{display:none;}
   .marks{position:relative;height:auto;grid-template-rows:auto auto auto auto;row-gap:12vw;padding-top:10vw;padding-bottom:6vw;border-bottom:1px dotted var(--rule);}
   .lower{row-gap:8vw;}
-  .mark{width:clamp(44px,13vw,64px);}
+  .mark{width:clamp(120px,34vw,170px);}
   .marks,.chapters{grid-column:1 / -1;}
   .chapter{min-height:auto;padding:12vw 0 14vw;border-bottom:1px dotted var(--rule);}
   .figure{font-size:clamp(34px,10vw,56px);}
@@ -730,7 +746,7 @@ a.row--link:hover .c-what,a.row--link:hover .c-outlet,a.row--link:hover .c-name{
   html.w8{--span:8;} html.w7{--span:7;} html.w6{--span:6;}
   .marks{grid-column:1 / var(--cs,4);}
   .chapters{grid-column:var(--cs,4) / var(--ce,13);}
-  .mark{width:calc(var(--col) * .72);}                                                       /* a little under one column */
+  .mark{width:calc(var(--col) * 1.5 + var(--gut-px) * .5);}                                   /* the full mark, a column and a half */
   .v-new .menu a{font-size:clamp(24px,min(5.4svh,(var(--ms,3) * var(--col) + (var(--ms,3) - 1) * var(--gut-px)) / 5.5),76px);}   /* the index fits its columns */
   :is(.w8,.w7,.w6) .body{grid-template-columns:repeat(var(--span),1fr);}
   :is(.w8,.w7,.w6) .body > *,:is(.w8,.w7,.w6) .pairs > div,:is(.w8,.w7,.w6) .lead{grid-column:1 / -1;}
@@ -837,7 +853,23 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
 <div class="page">
   <aside class="marks" aria-label="Woza Labs">
 
-    <a class="mark" href="/#" aria-label="Woza Labs, home"><svg viewBox="0 0 473 474" aria-hidden="true"><rect width="473" height="474" fill="currentColor"/><g transform="translate(0,474) scale(0.1,-0.1)"><path class="mark__ast" d="M2171 3828 c6 -24 60 -225 120 -448 l109 -405 -78 -77 -77 -77 -99 27
+    <a class="mark" href="/#" aria-label="Woza Labs, home"><svg viewBox="0 0 3584 537" fill="currentColor" aria-hidden="true"><g transform="translate(0,537) scale(0.1,-0.1)"><path d="M35012 5350 c-228 -61 -407 -244 -467 -475 -19 -76 -19 -231 0 -314
+25 -105 89 -216 176 -302 62 -63 93 -85 170 -122 52 -25 118 -50 147 -56 76
+-16 238 -14 307 4 195 50 381 214 449 398 50 132 56 270 20 412 -51 196 -219
+371 -431 446 -87 31 -273 36 -371 9z m281 -145 c92 -19 160 -58 238 -135 102
+-100 149 -212 149 -349 0 -42 -6 -99 -14 -127 -45 -168 -192 -315 -361 -359
+-310 -80 -625 165 -625 485 0 223 159 424 383 485 68 18 146 18 230 0z"/><path d="M34950 4720 l0 -300 65 0 64 0 3 103 3 102 65 0 65 0 53 -102 53
+-103 73 0 74 0 -60 116 -60 116 35 36 c44 45 57 78 57 142 0 86 -32 137 -105
+171 -34 16 -66 19 -212 19 l-173 0 0 -300z m307 190 c53 -32 57 -114 7 -161
+-22 -21 -35 -24 -102 -24 l-77 0 -3 89 c-2 49 -1 95 2 103 9 22 134 17 173 -7z"/><path d="M22780 3000 l0 -2350 305 0 305 0 0 2350 0 2350 -305 0 -305 0 0
+-2350z"/><path d="M27820 3000 l0 -2350 235 0 235 0 0 230 0 231 46 -58 c231 -291 651
+-443 1226 -443 492 0 827 116 1089 379 300 300 441 737 443 1376 1 351 -32
+597 -114 846 -145 443 -379 696 -760 823 -199 66 -359 89 -630 89 -217 0 -339
+-12 -510 -50 -253 -56 -407 -134 -567 -287 l-83 -79 0 822 0 821 -305 0 -305
+0 0 -2350z m1935 555 c221 -39 365 -109 470 -227 100 -114 191 -352 227 -595
+20 -138 17 -599 -5 -741 -67 -427 -207 -655 -465 -761 -156 -64 -289 -85 -527
+-84 -363 1 -594 72 -756 233 -64 63 -84 92 -127 180 -105 216 -152 472 -152
+825 0 412 67 701 211 905 102 146 320 249 586 279 123 14 429 6 538 -14z"/><rect width="4730" height="4740" fill="currentColor"/><path class="mark__ast" d="M2171 3828 c6 -24 60 -225 120 -448 l109 -405 -78 -77 -77 -77 -99 27
 c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21
 -12 29 -41z m1389 -523 c0 -5 -221 -230 -490 -500 -270 -269 -490 -493 -490
 -496 0 -4 81 -308 179 -675 99 -368 178 -670 176 -672 -6 -7 -340 -92 -348
@@ -847,7 +879,55 @@ c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21
 182 45 166 49 175 71 172 13 -1 318 -82 678 -178 l654 -176 496 496 496 496
 127 -127 c71 -70 128 -132 128 -138z m-145 -1021 c242 -65 444 -120 448 -124
 7 -6 -76 -346 -86 -357 -3 -2 -900 236 -903 240 -1 1 -14 49 -28 106 l-28 104
-73 73 c41 41 76 74 79 74 3 0 203 -52 445 -116z"/></g></svg></a>
+73 73 c41 41 76 74 79 74 3 0 203 -52 445 -116z"/><path d="M12565 4124 c-389 -30 -650 -109 -891 -270 -241 -161 -454 -491 -544
+-844 -96 -374 -99 -886 -8 -1275 130 -561 470 -919 1003 -1058 191 -50 298
+-62 575 -62 280 0 379 11 587 65 508 131 844 470 988 996 97 353 111 798 39
+1194 -61 334 -218 656 -414 850 -214 213 -510 343 -887 389 -93 12 -372 21
+-448 15z m320 -554 c360 -40 561 -168 696 -445 106 -217 139 -374 146 -691 7
+-302 -16 -489 -86 -696 -129 -382 -364 -553 -812 -589 -340 -28 -638 46 -818
+204 -94 82 -186 229 -244 394 -110 307 -112 866 -5 1203 128 400 346 572 793
+624 67 7 245 5 330 -4z"/><path d="M19149 4120 c-462 -26 -793 -147 -1000 -368 -195 -208 -295 -441
+-306 -719 l-6 -133 305 0 305 0 6 104 c10 175 71 315 176 407 25 22 87 60 136
+84 156 78 309 105 592 105 376 0 619 -65 753 -200 68 -70 129 -187 159 -305
+21 -82 45 -264 37 -272 -3 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983 -140
+-549 -128 -819 -334 -916 -699 -29 -107 -26 -418 4 -530 90 -331 332 -559 726
+-684 187 -60 301 -74 581 -75 219 -1 266 2 379 23 414 74 743 248 949 501 l37
+45 0 -267 0 -268 240 0 240 0 0 1043 c0 1068 -4 1226 -40 1440 -70 421 -286
+714 -631 855 -249 102 -693 155 -1110 132z m1161 -1932 c-1 -414 -128 -676
+-420 -867 -193 -127 -428 -191 -700 -191 -300 0 -539 71 -669 198 -93 92 -131
+187 -131 333 0 115 25 184 92 255 87 92 253 159 528 214 153 30 1189 177 1263
+179 l37 1 0 -122z"/><path d="M25369 4120 c-342 -19 -633 -97 -824 -221 -134 -87 -264 -229 -350
+-384 -82 -146 -135 -354 -135 -527 l0 -88 303 0 304 0 6 103 c15 243 109 394
+309 491 161 79 313 106 595 106 278 0 498 -39 638 -113 169 -90 271 -277 305
+-561 6 -54 9 -100 6 -103 -2 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983
+-140 -538 -125 -799 -317 -906 -669 -26 -84 -28 -103 -28 -275 -1 -214 16
+-303 83 -444 50 -106 84 -154 167 -238 154 -156 387 -272 654 -327 310 -65
+722 -50 1020 35 286 83 556 244 707 423 l58 70 3 -265 2 -264 240 0 240 0 0
+1048 c0 641 -4 1101 -11 1187 -25 336 -86 542 -223 755 -154 238 -403 377
+-796 444 -192 33 -523 49 -751 36z m1161 -1928 c0 -390 -116 -652 -373 -841
+-184 -135 -411 -208 -682 -218 -467 -19 -778 125 -850 391 -24 89 -17 231 14
+303 63 143 242 234 596 304 149 29 1186 176 1258 178 l37 1 0 -118z"/><path d="M32865 4120 c-484 -27 -811 -140 -1029 -357 -116 -115 -185 -234
+-227 -388 -18 -66 -22 -108 -23 -240 -1 -186 11 -243 77 -370 74 -143 257
+-302 443 -386 161 -72 611 -186 1299 -329 173 -36 273 -68 365 -116 135 -70
+216 -153 241 -247 17 -64 6 -167 -25 -231 -35 -72 -137 -166 -228 -212 -156
+-79 -350 -108 -665 -101 -245 5 -343 19 -495 71 -119 41 -192 83 -276 161
+-127 117 -186 247 -198 439 l-7 106 -298 0 -299 0 0 -96 c0 -231 66 -459 187
+-641 50 -77 180 -212 262 -272 269 -199 666 -301 1176 -301 573 0 957 121
+1220 385 183 182 266 377 266 620 0 145 -20 239 -77 355 -39 79 -62 110 -133
+181 -138 138 -317 246 -537 322 -115 40 -427 114 -769 182 -258 52 -368 79
+-517 131 -207 72 -325 151 -374 250 -24 49 -26 63 -22 138 6 107 37 175 114
+245 137 126 355 181 709 181 189 0 300 -11 420 -41 319 -81 514 -313 515 -611
+l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
+-1349 365z"/><path d="M5713 4078 c7 -20 1058 -3359 1069 -3395 l9 -33 317 0 317 0 420
+1299 c231 715 421 1296 423 1293 2 -4 198 -587 435 -1297 l432 -1290 329 0
+330 0 553 1710 c304 941 553 1713 553 1718 0 4 -149 6 -332 5 l-332 -3 -395
+-1307 c-218 -719 -398 -1305 -400 -1302 -3 3 -202 591 -442 1307 l-436 1302
+-289 0 -288 0 -291 -885 c-159 -487 -350 -1069 -424 -1293 -73 -225 -137 -405
+-141 -400 -4 4 -165 564 -358 1243 -194 679 -359 1259 -367 1288 l-16 52 -340
+0 c-269 0 -340 -3 -336 -12z"/><path d="M14612 3823 l3 -268 983 -3 c540 -1 982 -4 982 -7 0 -3 -320 -391
+-712 -863 -392 -471 -753 -906 -803 -966 -49 -60 -174 -211 -277 -335 l-188
+-225 0 -253 0 -253 1420 0 1420 0 0 265 0 265 -1036 2 -1036 3 1006 1193 1006
+1193 0 259 0 260 -1385 0 -1385 0 2 -267z"/></g></svg></a>
 
     <nav class="menu" id="menu" aria-label="Chapters">
       <a href="#thesis"><span>Thesis</span><span class="menu__n" aria-hidden="true">00</span></a>
@@ -1367,7 +1447,7 @@ c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21
       setTimeout(() => { document.body.classList.remove('boot'); introMark.remove(); }, 1400);
     }, reduce ? 250 : 420);
   }
-  setTimeout(reveal, reduce ? 1100 : 2400);   // long enough for the sector lamps to settle
+  setTimeout(reveal, reduce ? 1100 : 5600);   // the scene's arrival, then the mark and its lamps
   // Anyone in a hurry can skip it.
   ['keydown', 'pointerdown', 'wheel', 'touchstart'].forEach(t => addEventListener(t, reveal, { once: true, passive: true }));
   if (location.hash) reveal();
@@ -1375,295 +1455,352 @@ c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21
 </script>
 <script>
 /* ─────────────────────────────────────────────────────────────
-   Woza number plane: a sheet of digits laid on a 3D plane behind the page.
-   Every load draws a new random landform; each digit reads its own height
-   (0 low, 9 high), so the field doubles as an elevation readout. The letters of the name
-   (W, O, Z, A, L, B, S) are scattered through it, and every glyph has a soft glow.
-   The surface moves in a seamless loop and the plane tilts a little toward the cursor.
-   Digits are ink at no more than DIGIT_ALPHA, and the palette check already assumes that
-   much ink under every piece of text, so the page stays AAA wherever they overlap.
+   Woza loggia: the background is a Renaissance arcade, ray-marched live on the GPU,
+   half built stone, half survey.
+   The building follows the Florentine loggia (Brunelleschi's Innocenti): a run of bays,
+   each a round arch on slender columns with bases and capitals, pietra serena against white
+   plaster, roundels in the spandrels, a sail vault over every bay with its transverse arch,
+   a blind arcade of pilasters and niches on the far wall, and a pavement banded in grey stone.
+   A low sun comes in through the arches and lays the columns' shadows across the floor.
+   Beyond a scanning front the same building is drawn as its digital survey: a point cloud
+   on the surfaces, its edges and level lines, and the front itself in the accent. The front
+   sweeps up the loggia on arrival and then breathes, and every few seconds a scan line runs
+   out through the building, leaving the survey behind it for a moment. The page opens on the
+   scene alone: the eye descends into the nave while the building resolves from survey to
+   stone; only then does the page come in. Each section moves the eye to another view.
+   Two passes: the scene (ink and accent amounts, full range), then FXAA and the composite.
+   Everything is drawn as ink over the page's own canvas, at no more than DIGIT_ALPHA, which
+   the palette check assumes under every piece of text, so the page stays AAA.
    ───────────────────────────────────────────────────────────── */
 (() => {
   'use strict';
   const root = document.documentElement;
   const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const A_MAX = (window.WozaPalette && WozaPalette.DIGIT_ALPHA) || 0.08;
-  const LOOP = 24000;                              // ms for one full cycle of the surface
-  const TAU = Math.PI * 2;
+  const A = (window.WozaPalette && WozaPalette.DIGIT_ALPHA) || 0.12;
 
   const cv = document.createElement('canvas');
   cv.className = 'loops'; cv.setAttribute('aria-hidden', 'true');
   document.body.prepend(cv);
-  const ctx = cv.getContext('2d');
+  const gl = cv.getContext('webgl', { premultipliedAlpha: true, antialias: false, alpha: true, preserveDrawingBuffer: true });
+  if (!gl) { window.WozaNumbers = { next() {}, show() {}, still() {} }; return; }
+  const deriv = gl.getExtension('OES_standard_derivatives');
 
-  function inkRgb() {
-    const p = document.createElement('i');
-    p.style.cssText = 'position:absolute;visibility:hidden;color:var(--ink)';
-    document.body.appendChild(p);
-    const c = getComputedStyle(p).color, n = (c.match(/[\d.]+/g) || [0, 0, 0]).slice(0, 3).map(Number);
-    p.remove();
-    return c.startsWith('color(') ? n.map(x => Math.round(x * 255)) : n.map(Math.round);
+  const VS = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}';
+  const FS2 = `precision highp float;
+uniform sampler2D uTex; uniform vec2 uRes; uniform float uA, uIn, uTime; uniform vec3 uInk, uAcc;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+vec4 tx(vec2 p){ return texture2D(uTex, p / uRes); }
+// FXAA (after Timothy Lottes): edge-directed blend, luma taken from the ink amount
+void main(){
+  vec2 fc = gl_FragCoord.xy;
+  vec4 nw = tx(fc + vec2(-1., -1.)), ne = tx(fc + vec2(1., -1.)), sw = tx(fc + vec2(-1., 1.)), se = tx(fc + vec2(1., 1.)), mc = tx(fc);
+  float lNW = nw.r, lNE = ne.r, lSW = sw.r, lSE = se.r, lM = mc.r;
+  float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE))), lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));
+  vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), (lNW + lSW) - (lNE + lSE));
+  float red = max((lNW + lNE + lSW + lSE) * (.25 / 8.), 1. / 128.);
+  float rcp = 1. / (min(abs(dir.x), abs(dir.y)) + red);
+  dir = clamp(dir * rcp, -8., 8.);
+  vec4 a2 = .5 * (tx(fc + dir * (1. / 3. - .5)) + tx(fc + dir * (2. / 3. - .5)));
+  vec4 b4 = a2 * .5 + .25 * (tx(fc - dir * .5) + tx(fc + dir * .5));
+  vec4 c = (b4.r < lMin || b4.r > lMax) ? a2 : b4;
+  float ink = clamp(c.r + (hash(fc + fract(uTime) * 91.) - .5) * .05, 0., 1.) * uIn;
+  float ai = uA * ink, ac = uA * uIn * c.g;
+  gl_FragColor = vec4(uInk * ai + uAcc * ac * (1. - ai), ai + ac * (1. - ai));
+}`;
+  const FS = `${deriv ? '#extension GL_OES_standard_derivatives : enable\n#define DERIV 1' : ''}
+precision highp float;
+uniform vec2 uRes; uniform float uTime; uniform vec3 uPos, uTar; uniform vec3 uInk, uAcc;
+uniform float uDark, uScan, uPulse; uniform vec2 uLean;
+const float P = 4.2, W = 3.2, CR = 0.25, SH = 4.3, SPR = 4.78, RO = 1.78, ENT = 8.2, HS = 8.9;
+float sdBox(vec3 p, vec3 b){ vec3 q = abs(p) - b; return length(max(q, 0.)) + min(max(q.x, max(q.y, q.z)), 0.); }
+float sdBox2(vec2 p, vec2 b){ vec2 q = abs(p) - b; return length(max(q, 0.)) + min(max(q.x, q.y), 0.); }
+float cylY(vec3 p, float r, float y0, float y1){ vec2 d = vec2(length(p.xz) - r, abs(p.y - (y0 + y1) * .5) - (y1 - y0) * .5); return min(max(d.x, d.y), 0.) + length(max(d, 0.)); }
+float opening(vec2 q, float r, float spring){ return min(sdBox2(vec2(q.x, q.y - spring * .5), vec2(r, spring * .5 + .02)), length(vec2(q.x, q.y - spring)) - r); }
+// materials: 0 plaster, 1 pietra serena, 2 pavement
+vec2 map(vec3 p){
+  float zc = mod(p.z + P * .5, P) - P * .5;     // bay-local, columns at 0
+  float za = mod(p.z, P) - P * .5;              // bay-local, arch centres at 0
+  // pavement
+  vec2 r = vec2(p.y, 2.);
+  float stone = 1e3;
+  // Each group is only evaluated near where it stands; elsewhere a lower bound on its distance
+  // stands in, so the march can't overshoot and most samples skip most of the building.
+  float ax = abs(p.x - W) - .45;
+  if (ax < .35) {
+    // the arcade wall with its openings, and the roundels in the spandrels
+    float wall = max(abs(p.x - W) - .3, abs(p.y - ENT * .5) - ENT * .5);
+    wall = max(wall, -opening(vec2(za, p.y), RO, SPR));
+    wall = max(wall, -max(length(vec2(zc, p.y - (SPR + 1.55))) - .5, abs(p.x - (W - .3)) - .09));
+    if (wall < r.x) r = vec2(wall, 0.);
+    // archivolts, in stone, standing a little proud of the wall
+    float ring = max(max(abs(length(vec2(za, p.y - SPR)) - (RO + .13)) - .13, abs(p.x - W) - .36), SPR - p.y);
+    float roundel = max(abs(length(vec2(zc, p.y - (SPR + 1.55))) - .5) - .05, abs(p.x - (W - .3)) - .04);
+    float ent = max(abs(p.x - W) - .42, abs(p.y - (ENT + .35)) - .35);
+    stone = min(min(ring, roundel), ent);
+    // columns: base, shaft with entasis, capital and abacus
+    if (p.y < SPR + .1) {
+      vec3 c = vec3(p.x - W, p.y, zc);
+      float shaft = cylY(c, CR * (1. - .07 * clamp(p.y / SH, 0., 1.)), .3, SH);
+      float base = min(cylY(c, .34, 0., .12), cylY(c, .3, .12, .3));
+      float cap = min(cylY(c, mix(.24, .38, clamp((p.y - SH) / .32, 0., 1.)), SH, SH + .32), sdBox(c - vec3(0., SPR - .08, 0.), vec3(.42, .08, .42)));
+      stone = min(stone, min(shaft, min(base, cap)));
+    }
+  } else { if (ax < r.x) r = vec2(ax, 0.); }
+  float bx = p.x + W - .13;
+  if (bx < .35) {
+    // the far wall: plaster, pilasters and blind niches under their own archivolts
+    float wl = p.x + W;
+    wl = max(wl, -max(opening(vec2(za, p.y), RO - .25, SPR), -(p.x + W + .14)));
+    if (wl < r.x) r = vec2(wl, 0.);
+    float pil = sdBox(vec3(p.x + W, p.y - SPR * .5, zc), vec3(.12, SPR * .5, .3));
+    float nring = max(max(abs(length(vec2(za, p.y - SPR)) - (RO - .12)) - .1, abs(p.x + W) - .06), SPR - p.y);
+    float went = max(abs(p.x + W) - .1, abs(p.y - (ENT + .35)) - .35);
+    stone = min(stone, min(pil, min(nring, went)));
+  } else { if (bx < r.x) r = vec2(bx, 0.); }
+  float cy = HS - .17 - p.y;
+  if (cy < .35) {
+    // sail vaults, one per bay, and the transverse arches between them
+    float vault = max(sqrt(W * W + P * P * .25) - length(vec3(p.x, p.y - HS, za)), HS - p.y);
+    vault = max(vault, abs(p.x) - W - .5);
+    if (vault < r.x) r = vec2(vault, 0.);
+    float rib = max(max(abs(zc) - .22, W - .02 - length(vec2(p.x, p.y - HS))), max(HS - p.y, abs(p.x) - W));
+    float cornice = max(max(abs(p.y - (HS - .08)) - .08, abs(p.x) - W - .5), -(abs(p.x) - W + .12));
+    stone = min(stone, min(rib, cornice));
+  } else { if (cy < r.x) r = vec2(cy, 0.); }
+  if (stone < r.x) r = vec2(stone, 1.);
+  return r;
+}
+vec3 nrm(vec3 p){ const vec2 k = vec2(1., -1.); const float h = .0015;   // four taps instead of six
+  return normalize(k.xyy * map(p + k.xyy * h).x + k.yyx * map(p + k.yyx * h).x + k.yxy * map(p + k.yxy * h).x + k.xxx * map(p + k.xxx * h).x); }
+// Tetrahedral gradient: four taps, used for the survey's crease lines.
+vec3 grad4(vec3 p){ const vec2 k = vec2(1., -1.); const float h = .003;
+  return normalize(k.xyy * map(p + k.xyy * h).x + k.yyx * map(p + k.yyx * h).x + k.yxy * map(p + k.yxy * h).x + k.xxx * map(p + k.xxx * h).x); }
+// Creases, found in the building itself rather than in screen pixels: the surface is probed a
+// little to either side (by about one and a half pixels' width at that depth) and wherever the
+// normal turns, a line is drawn. One continuous, even stroke centred on the edge, at any angle.
+float crease(vec3 p, vec3 n, float r){
+  vec3 a = normalize(cross(n, abs(n.y) < .9 ? vec3(0., 1., 0.) : vec3(1., 0., 0.))), b = cross(n, a);
+  float e = 0.;
+  e = max(e, 1. - dot(n, grad4(p + a * r)));
+  e = max(e, 1. - dot(n, grad4(p - a * r)));
+  e = max(e, 1. - dot(n, grad4(p + b * r)));
+  e = max(e, 1. - dot(n, grad4(p - b * r)));
+  return e;
+}
+// Soft shadow: 32 steps with a per-pixel jittered start, so any leftover stepping reads as
+// fine grain rather than contour bands.
+float shadow(vec3 o, vec3 d, float j){ float s = 1., t = .03 + j * .05;
+  for (int i = 0; i < 32; i++){ float h = map(o + d * t).x; s = min(s, 10. * h / t); t += clamp(h, .025, .7); if (s < .005 || t > 18.) break; }
+  return clamp(s, 0., 1.); }
+float ao(vec3 p, vec3 n){ float o = 0., w = 1.; for (int i = 1; i < 4; i++){ float h = .13 * float(i); o += (h - map(p + n * h).x) * w; w *= .6; } return clamp(1. - 1.9 * o, 0., 1.); }
+float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float h3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float vnoise(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+  return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+void main(){
+  vec2 fc = gl_FragCoord.xy, uv = (fc - uRes * .5) / uRes.y;
+  vec3 fw = normalize(uTar - uPos), rt = normalize(cross(fw, vec3(0., 1., 0.))), up = cross(rt, fw);
+  vec3 rd = normalize(fw * 1.55 + rt * (uv.x + uLean.x) + up * (uv.y + uLean.y));
+  float t = .05, m = -1.; vec3 p;
+  for (int i = 0; i < 96; i++){ p = uPos + rd * t; vec2 h = map(p); if (h.x < .0012 * t){ m = h.y; break; } t += h.x * .95; if (t > 52.) break; }
+  vec3 sun = normalize(vec3(.72, .52, .42));
+  float lum, dig = 0.; vec3 n = vec3(0.);
+  if (m < 0.){
+    lum = .96 - .06 * rd.y;                                           // the open sky beyond the arches
+  } else {
+    n = nrm(p);
+    float zc = mod(p.z + P * .5, P) - P * .5;
+    float grain = vnoise(p * 3.1) * .6 + vnoise(p * 11.) * .4;         // stone and lime are never flat
+    float alb = m > .5 && m < 1.5 ? .25 * (.86 + .28 * grain) : .86 * (.95 + .08 * grain);
+    if (m > 1.5){                                                      // pavement: grey bands on the bay lines
+      float band = step(abs(zc), .16) + step(abs(abs(p.x) - (W - .75)), .09);
+      float slab = step(.985, max(abs(fract(p.x * .9) - .5), abs(fract(p.z * .9) - .5)) * 2.);
+      alb = mix(.62, .27, clamp(band, 0., 1.)) * (1. - .12 * slab) * (.94 + .06 * hash(floor(p.xz * .9)));
+    }
+    float ndl = dot(n, sun);
+    float dif = ndl > 0. ? ndl * shadow(p + n * .01, sun, hash(fc)) : 0.;
+    float sky = .5 + .5 * n.y, occ = ao(p, n);
+    float bounce = max(dot(n, vec3(0., 1., 0.)) * -1., 0.) * .25 + max(dot(n, vec3(-sun.x, 0., -sun.z)), 0.) * .12;
+    vec3 col = vec3(alb) * (vec3(2.6) * dif + vec3(.42) * sky * occ + vec3(.5) * bounce * occ);
+    col = 1. - exp(-col * 1.15);                                       // soft film shoulder
+    lum = dot(col, vec3(.333));
+    lum = mix(lum, .96, 1. - exp(-t * .028));                          // aerial perspective
+  }
+  // Where the survey shows: beyond the scanning front, and for a moment behind each scan line.
+  float front = uScan;
+  float d = m < 0. ? 999. : t;
+  float trail = m < 0. ? 0. : smoothstep(uPulse - 2.2, uPulse - .15, d) * (1. - smoothstep(uPulse - .02, uPulse + .04, d));
+  dig = max(smoothstep(front - .35, front + .35, d), trail * .9);
+  float pulseLine = m < 0. ? 0. : exp(-abs(d - uPulse) * 34.);
+  float frontLine = (m < 0. ? 0. : exp(-abs(d - front) * 26.) * .8 + exp(-max(d - front, 0.) * 5.) * step(front, d) * .22);   // a bright line and a short afterglow
+  // real: tone mapped light as ink over the canvas
+  float real = uDark > .5 ? lum : 1. - lum;
+  // survey: a point cloud on the surfaces, their edges and level lines
+  float survey = 0.;
+  if (m >= 0.){
+    vec3 an = abs(n); vec2 sp = (an.x > .5 ? p.zy : an.y > .5 ? p.xz : p.xy) * 6.;
+    vec2 g = fract(sp) - .5;
+    float pw = .06, edge = 0., lev = 0., sil = 0.;
+    float foot = t / (uRes.y * 1.55);                                  // one pixel, in metres, at this depth
+    #ifdef DERIV
+      pw = max(.06, length(fwidth(sp)) * .7);
+      vec2 lw = fwidth(p.yy * 2.);
+      lev = 1. - smoothstep(0., lw.x * 1.2, abs(fract(p.y * 2.) - .5) - (.5 - lw.x * .6));
+    #endif
+    if (dig > .01) edge = smoothstep(.04, .3, crease(p, n, foot * 1.6));
+    sil = (1. - smoothstep(.015, .09, abs(dot(n, rd)))) * .6;         // a fine outline where round forms turn away
+    float pt = (1. - smoothstep(.1, .1 + pw, length(g))) * (1. - smoothstep(.25, .6, pw));   // points thin out with distance
+    float fog = exp(-t * .04);
+    survey = (pt * (.3 + .45 * (uDark > .5 ? lum : 1. - lum)) + max(edge, sil) * .9 + lev * .3) * fog;
+  }
+  float ink = mix(real, survey, dig);
+  float vig = 1. - .35 * dot(uv * vec2(.8, 1.), uv * vec2(.8, 1.));
+  gl_FragColor = vec4(clamp(ink * vig, 0., 1.), clamp(frontLine * .9 + pulseLine * .95, 0., 1.), 0., 1.);
+}`;
+  function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; }
+  const vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS), fs2 = sh(gl.FRAGMENT_SHADER, FS2);
+  if (!vs || !fs || !fs2) { window.WozaNumbers = { next() {}, show() {}, still() {} }; return; }
+  const prog = f => { const p = gl.createProgram(); gl.attachShader(p, vs); gl.attachShader(p, f); gl.linkProgram(p); return p; };
+  const pr = prog(fs), px = prog(fs2);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  [pr, px].forEach(p => { const l = gl.getAttribLocation(p, 'a'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0); });
+  const U = {}, X = {};
+  ['uRes', 'uTime', 'uPos', 'uTar', 'uDark', 'uScan', 'uPulse', 'uLean'].forEach(k => U[k] = gl.getUniformLocation(pr, k));
+  ['uTex', 'uRes', 'uA', 'uIn', 'uTime', 'uInk', 'uAcc'].forEach(k => X[k] = gl.getUniformLocation(px, k));
+  // the scene is drawn into a texture, then antialiased and composited onto the canvas
+  const tex = gl.createTexture(), fbo = gl.createFramebuffer();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  const COL = { ink: [0, 0, 0], acc: [0, 0, 0], dark: 0 };
+  function colors() {
+    const p = document.createElement('i'); p.style.cssText = 'position:absolute;visibility:hidden'; document.body.appendChild(p);
+    const read = v => { p.style.color = v; const c = getComputedStyle(p).color, n = (c.match(/[\d.]+/g) || [0, 0, 0]).slice(0, 3).map(Number); return c.startsWith('color(') ? n : n.map(x => x / 255); };
+    const ink = read('var(--ink)'), acc = read('var(--accent)'); p.remove();
+    COL.ink = ink; COL.acc = acc; COL.dark = root.classList.contains('is-dark') ? 1 : 0;
   }
 
-  // Ten digit sprites, drawn once in Neue Montreal and scaled per digit afterwards.
-  // Glyph sprites: the ten digits, then the letters of the name. Each carries its own glow,
-  // drawn once, so the sheet costs one drawImage per glyph. The glow never outshines its glyph,
-  // so the plane still stays under DIGIT_ALPHA wherever it sits behind text.
-  const GLYPHS = '0123456789WOZALBS', LETTER0 = 10, SPR = 96, PAD = Math.round(SPR * 0.42), SPT = SPR + PAD * 2, SCALE = SPT / SPR, sprites = [];
-  function buildSprites() {
-    const ink = inkRgb(), col = `rgb(${ink[0]},${ink[1]},${ink[2]})`;
-    [...GLYPHS].forEach((ch, d) => {
-      const s = sprites[d] || document.createElement('canvas');
-      s.width = SPT; s.height = SPT;
-      const c = s.getContext('2d');
-      c.clearRect(0, 0, SPT, SPT);
-      c.font = `${SPR * 0.78}px 'Neue Montreal', 'Helvetica Neue', Helvetica, Arial, sans-serif`;
-      c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillStyle = col; c.shadowColor = col;
-      const X = SPT / 2, Y = SPT / 2 + SPR * 0.04;
-      c.shadowBlur = SPR * 0.36; c.globalAlpha = 0.9;  c.fillText(ch, X, Y);   // wide, soft halo
-      c.shadowBlur = SPR * 0.36; c.globalAlpha = 0.9;  c.fillText(ch, X, Y);   // twice, so it carries
-      c.shadowBlur = SPR * 0.12; c.globalAlpha = 1;    c.fillText(ch, X, Y);   // tighter bloom
-      c.shadowBlur = 0;          c.globalAlpha = 1;    c.fillText(ch, X, Y);   // the glyph itself
-      sprites[d] = s;
-    });
-  }
-
-  // ── Landforms ──────────────────────────────────────────────
-  // Each returns h(x, z, phase) roughly in -1..1; phase runs 0..TAU and every term uses
-  // whole multiples of it, so the motion closes on itself without a seam.
-  const r = (a, b) => a + Math.random() * (b - a);
-  const CX = 0, CZ = 0.35;                         // the plane's visible middle
-  const LOGO_D = 'M2171 3828 c6 -24 60 -225 120 -448 l109 -405 -78 -77 -77 -77 -99 27 c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21 -12 29 -41z m1389 -523 c0 -5 -221 -230 -490 -500 -270 -269 -490 -493 -490 -496 0 -4 81 -308 179 -675 99 -368 178 -670 176 -672 -6 -7 -340 -92 -348 -89 -6 2 -22 48 -37 103 -15 54 -82 306 -150 559 -68 253 -125 462 -127 465 -2 2 -192 -184 -421 -413 l-417 -417 -133 132 -132 133 417 417 c229 229 415 419 413 422 -3 2 -252 70 -555 150 -302 81 -557 150 -566 154 -14 6 -11 27 31 182 45 166 49 175 71 172 13 -1 318 -82 678 -178 l654 -176 496 496 496 496 127 -127 c71 -70 128 -132 128 -138z m-145 -1021 c242 -65 444 -120 448 -124 7 -6 -76 -346 -86 -357 -3 -2 -900 236 -903 240 -1 1 -14 49 -28 106 l-28 104 73 73 c41 41 76 74 79 74 3 0 203 -52 445 -116z';
-  const LG = 160, logoMap = (() => {
-    const c = document.createElement('canvas'); c.width = c.height = LG;
-    const g = c.getContext('2d');
-    g.filter = 'blur(2.5px)';
-    g.setTransform(LG / 473 * 0.1, 0, 0, -LG / 474 * 0.1, 0, LG);      // the mark's own transform: translate(0,474) scale(.1,-.1)
-    g.fill(new Path2D(LOGO_D));
-    const d = g.getImageData(0, 0, LG, LG).data, m = new Float32Array(LG * LG);
-    for (let i = 0; i < m.length; i++) m[i] = d[i * 4 + 3] / 255;
-    return m;
-  })();
-  function logoAt(u, v) {                                   // bilinear sample, 0 outside
-    if (u <= 0 || u >= 1 || v <= 0 || v >= 1) return 0;
-    const x = u * (LG - 1), y = v * (LG - 1), i = x | 0, j = y | 0, fx = x - i, fy = y - j, k = j * LG + i;
-    return (logoMap[k] * (1 - fx) + logoMap[k + 1] * fx) * (1 - fy) + (logoMap[k + LG] * (1 - fx) + logoMap[k + LG + 1] * fx) * fy;
-  }
-  const sm = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
-  const SHAPES = {
-    hills() {
-      const n = 3 + (Math.random() * 3 | 0);
-      const b = Array.from({ length: n }, () => ({ x: r(-0.9, 0.9), z: r(-0.6, 1.2), s: r(0.18, 0.42), a: r(0.5, 1) * (Math.random() < 0.3 ? -1 : 1), o: r(0.08, 0.22), k: 1 + (Math.random() * 2 | 0), q: r(0, TAU) }));
-      return (x, z, p) => { let h = 0; for (const o of b) { const cx = o.x + Math.cos(p * o.k + o.q) * o.o, cz = o.z + Math.sin(p * o.k + o.q) * o.o, d = ((x - cx) ** 2 + (z - cz) ** 2) / (o.s * o.s); h += o.a * Math.exp(-d); } return h; };
-    },
-    ripple() {
-      const cx = r(-0.5, 0.5), cz = r(0, 0.9), k = r(7, 12), f = r(0.6, 1.2);
-      return (x, z, p) => { const d = Math.hypot(x - cx, z - cz); return Math.sin(d * k - p * 2) * Math.exp(-d * f); };
-    },
-    ridges() {
-      const t = r(0, Math.PI), ux = Math.cos(t), uz = Math.sin(t), k = r(3, 6), w = r(1.5, 3);
-      return (x, z, p) => { const u = x * ux + z * uz, v = -x * uz + z * ux; return Math.sin(u * k + Math.sin(v * w + p) * 0.9 + p) * (0.6 + 0.4 * Math.cos(v * 2 - p)); };
-    },
-    saddle() {
-      const s = r(0.9, 1.4), q = r(0, TAU);
-      return (x, z, p) => { const a = p + q, zz = z - 0.3, u = x * Math.cos(a) - zz * Math.sin(a), v = x * Math.sin(a) + zz * Math.cos(a); return (u * u - v * v) * s * Math.exp(-(x * x + zz * zz) * 0.8); };
-    },
-    interference() {
-      const s = Array.from({ length: 2 }, () => ({ x: r(-1, 1), z: r(-0.4, 1.4) })), k = r(9, 14);
-      return (x, z, p) => { let h = 0; for (const o of s) h += Math.sin(Math.hypot(x - o.x, z - o.z) * k - p * 3); return h / 2; };
-    },
-    dune() {
-      const t = r(-0.6, 0.6), k = r(4, 7);
-      return (x, z, p) => { const u = x * Math.cos(t) + z * Math.sin(t), v = z * Math.cos(t) - x * Math.sin(t); const w = (u * k - p) / TAU; const saw = w - Math.floor(w); return (saw < 0.7 ? saw / 0.7 : (1 - saw) / 0.3) * 2 - 1 + Math.sin(v * 3 + p) * 0.25; };
-    },
-
-    // ── Objects: figures stood up out of the sheet. Each is centred on the plane's visible
-    // middle, turns by exactly one of its symmetries per loop, and stands taller (amp).
-    // The Woza asterisk itself: the mark's own path, rasterised once into a soft height map,
-    // raised as a flat-topped figure that sways a little either side of upright.
-    asterisk() {
-      const S = 2.0, sway = r(0.12, 0.2);
-      const f = (x, z, p) => {
-        const X = x - CX, Z = z - CZ, a = Math.sin(p) * sway, u = X * Math.cos(a) + Z * Math.sin(a), v = -X * Math.sin(a) + Z * Math.cos(a);
-        return logoAt(u / S + 0.5, 0.5 - v / S);
-      };
-      f.amp = 0.55; return f;                                      // kept low, so the mark reads as a figure on the sheet
-    },
-    donut() {
-      const R = r(0.5, 0.65), w = r(0.13, 0.18), tilt = r(0.25, 0.45);
-      const f = (x, z, p) => {
-        const X = x - CX, Z = z - CZ, rr = Math.hypot(X, Z), t = Math.atan2(Z, X);
-        return Math.exp(-((((rr - R) / w)) ** 2)) * (1 + tilt * Math.sin(t - p));                   // the ring rocks round once a loop
-      };
-      f.amp = 1.7; return f;
-    },
-    triangle() {
-      const R = r(0.3, 0.38), q = r(0, TAU), spin = Math.random() < 0.5 ? 1 : -1;
-      const f = (x, z, p) => {
-        const X = x - CX, Z = z - CZ, a = q + spin * p / 3;                                       // a 120° turn per loop
-        let m = -Infinity; for (let k = 0; k < 3; k++) { const t = a + k * TAU / 3; m = Math.max(m, X * Math.cos(t) + Z * Math.sin(t)); }
-        return sm(R + 0.05, R - 0.05, m) * (0.75 + 0.25 * Math.max(0, 1 - m / R));   // a raised triangular slab, gently domed                                                    // a pyramid: its contours are triangles
-      };
-      f.amp = 1.1; return f;
-    },
-    square() {
-      const R = r(0.5, 0.65), q = r(0, TAU);
-      const f = (x, z, p) => {
-        const X = x - CX, Z = z - CZ, a = q + p / 4;                                              // a 90° turn per loop
-        const u = X * Math.cos(a) + Z * Math.sin(a), v = -X * Math.sin(a) + Z * Math.cos(a);
-        return Math.max(0, 1 - Math.max(Math.abs(u), Math.abs(v)) / R);
-      };
-      f.amp = 1.9; return f;
-    },
-    wave() {
-      const t = r(-0.5, 0.5), k = r(1.6, 2.4), sharp = r(1.4, 2.2);
-      const f = (x, z, p) => { const u = x * Math.cos(t) + z * Math.sin(t); return Math.exp(Math.sin(u * k * Math.PI - p) * sharp); };   // one long swell rolling through
-      f.amp = 1.15; return f;
-    },
-    spiral() {
-      const arms = 2 + (Math.random() * 2 | 0), k = r(5, 8), dir = Math.random() < 0.5 ? 1 : -1;
-      const f = (x, z, p) => { const X = x - CX, Z = z - CZ, rr = Math.hypot(X, Z); return (Math.sin(arms * Math.atan2(Z, X) + rr * k - dir * p) * 0.5 + 0.5) * Math.exp(-rr * 1.1); };
-      f.amp = 1.6; return f;
-    },
-    dome() {
-      const R = r(0.55, 0.75);
-      const f = (x, z, p) => { const rr = Math.hypot(x - CX - Math.cos(p) * 0.12, z - CZ - Math.sin(p) * 0.12); return Math.sqrt(Math.max(0, 1 - (rr / R) ** 2)); };   // drifts in a small circle
-      f.amp = 1.8; return f;
-    },
-    cross() {
-      const L = r(0.6, 0.72), w = r(0.13, 0.17), q = r(0, TAU);
-      const f = (x, z, p) => {
-        const X = x - CX, Z = z - CZ, a = q + p / 4;
-        const u = X * Math.cos(a) + Z * Math.sin(a), v = -X * Math.sin(a) + Z * Math.cos(a);
-        const bar = (s, o) => sm(w, w * 0.35, Math.abs(o)) * sm(L + 0.05, L - 0.05, Math.abs(s));
-        return Math.max(bar(u, v), bar(v, u));
-      };
-      f.amp = 1.1; return f;
-    },
+  // Views of the building: [eye, target]. Each section moves the eye to the next.
+  const ARRIVAL = [[0.4, 13.5, -17], [0.1, 2.2, 14]];
+  const VIEWS = {
+    nave:     [[0.0, 1.65, -2.0], [0.25, 3.3, 30]],
+    arcade:   [[-2.3, 1.6, 0.5], [3.4, 3.4, 11]],
+    vaults:   [[0.2, 1.5, 1.0], [0.0, 9.5, 5.2]],
+    niches:   [[2.2, 1.7, -1.0], [-3.2, 3.6, 8.5]],
+    outside:  [[7.8, 1.7, -2.5], [3.0, 4.2, 9.5]],
+    gallery:  [[1.0, 6.4, 1.5], [0.0, 0.6, 19]],
+    bay:      [[-1.6, 1.7, 4.2], [3.2, 5.8, 6.3]],
+    threshold:[[4.6, 1.6, 2.1], [-3.2, 2.8, 2.1]],
   };
-  const NAMES = Object.keys(SHAPES);
-  function makeField(avoid, force) {
-    let name = force; if (!SHAPES[name]) do { name = NAMES[Math.random() * NAMES.length | 0]; } while (name === avoid && NAMES.length > 1);
-    const f = SHAPES[name]();
-    let lo = Infinity, hi = -Infinity;                  // normalise to -1..1 over one loop
-    for (let i = 0; i < 2000; i++) { const v = f(r(-1.4, 1.4), r(-1, 1.8), r(0, TAU)); lo = Math.min(lo, v); hi = Math.max(hi, v); }
-    const m = (hi + lo) / 2, s = 2 / Math.max(1e-6, hi - lo);
-    return { name, amp: f.amp || 1, h: (x, z, p) => Math.max(-1, Math.min(1, (f(x, z, p) - m) * s)) };
-  }
-  let field = makeField(null, 'asterisk'), prev = null, morph = 1, morphT0 = 0;   // every visit opens on the Woza asterisk
+  const NAMES = Object.keys(VIEWS);
+  let view = 'nave', from = null, moveT0 = 0, moveDur = 2200;
+  const MOVE = 2200;
+  const lerp = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+  const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-  // ── Plane and camera ───────────────────────────────────────
-  let W = 0, H = 0, dpr = 1, COLS = 56, ROWS = 40, VEIL = new Float32Array(0), LET = new Int8Array(0);
-  const X0 = -1.45, X1 = 1.45, Z0 = -1, Z1 = 1.9, AMP = 0.2, PITCH = -0.98, DIST = 3.1;
+  // Resolution: close to the screen's own pixels, lowered only if the machine can't keep up.
+  // Resolution follows the machine: it starts a little under the screen's pixels, steps down
+  // when frames miss the display's refresh (60, 90, 120 Hz alike) and creeps back up when
+  // there is headroom. The canvas is scaled by CSS, so changing it never touches layout.
+  const MAXS = Math.min(1.5, Math.max(1, devicePixelRatio || 1)), MINS = .45;
+  let W = 0, H = 0, scale = Math.min(MAXS, 1), last = 0, renderA = 0;
   function measure() {
-    dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
-    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    COLS = Math.round(Math.max(28, Math.min(64, W / 24))); ROWS = Math.round(COLS * 0.72);
-    // Each digit keeps its own random strength (20 to 100% of the plane's), so the sheet reads unevenly inked.
-    VEIL = Float32Array.from({ length: COLS * ROWS }, () => 0.2 + 0.8 * Math.random());
-    // About one node in five shows a letter of the name instead of its height.
-    LET = Int8Array.from({ length: COLS * ROWS }, () => Math.random() < 0.2 ? LETTER0 + (Math.random() * (GLYPHS.length - LETTER0) | 0) : -1);
+    W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * scale); cv.height = Math.round(H * scale);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cv.width, cv.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
-  let tiltX = 0, tiltY = 0, aimX = 0, aimY = 0;
-  // Glitch: glyphs the pointer passes over scramble through the set for a moment, then settle
-  // back to what they were. Only nodes near the path are touched, from last frame's positions.
-  const GR = 40, GLITCH_MS = 420;
-  let GUNTIL = new Float32Array(0);
-  if (fine && !reduce) addEventListener('pointermove', e => {
-    aimX = (e.clientY / H - 0.5); aimY = (e.clientX / W - 0.5);
-    if (GUNTIL.length !== NX.length) GUNTIL = new Float32Array(NX.length);
-    const now = performance.now(), px = e.clientX, py = e.clientY;
-    for (let n = 0; n < NX.length; n++) {
-      if (!NA[n]) continue;
-      const d = Math.hypot(NX[n] - px, NY[n] - py);
-      if (d < GR) GUNTIL[n] = Math.max(GUNTIL[n], now + GLITCH_MS * (1 - d / GR) + Math.random() * 220);
-    }
-    play();
-  }, { passive: true });
-  const scramble = (n, t) => (Math.imul(n * 374761393 + Math.floor(t / 55) * 668265263, 1274126177) >>> 0) % GLYPHS.length;
-  document.addEventListener('pointerleave', () => { aimX = 0; aimY = 0; });
-
-  const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
-  // Nodes of the current frame: screen position, size, strength and digit, filled by pass 1.
-  let NX = new Float32Array(0), NY = NX, NS = NX, NA = NX, NB = NX, ND = new Uint8Array(0);
-  function draw(c, w, h, phase, tx, ty, alphaMax, now = 0) {
-    const F = Math.max(w, h * 1.4) * 0.92, cx = w * 0.5, cy = h * 0.6;
-    const pc = Math.cos(PITCH + tx * 0.07), ps = Math.sin(PITCH + tx * 0.07);
-    const yc = Math.cos(ty * 0.11), ys = Math.sin(ty * 0.11);
-    const dx = (X1 - X0) / (COLS - 1), dz = (Z1 - Z0) / (ROWS - 1);
-    const m = morph < 1 ? morph * morph * (3 - 2 * morph) : 1;
-    const N = COLS * ROWS;
-    // Arrival: the sheet starts flat and rises into its shape.
-    const rt = riseT0 ? Math.max(0, Math.min(1, (now - riseT0) / RISE_MS)) : (now ? 0 : 1), rise = rt < 0.5 ? 4 * rt ** 3 : 1 - (-2 * rt + 2) ** 3 / 2;
-    if (NX.length !== N) { NX = new Float32Array(N); NY = new Float32Array(N); NS = new Float32Array(N); NA = new Float32Array(N); NB = new Float32Array(N); ND = new Uint8Array(N); }
-    // Pass 1: project every node.
-    for (let j = 0; j < ROWS; j++) {
-      const z = Z0 + j * dz;
-      const fogZ = smooth(Z1, Z1 - 1.1, z) * smooth(Z0 - 0.05, Z0 + 0.35, z);
-      for (let i = 0; i < COLS; i++) {
-        const n = j * COLS + i, x = X0 + i * dx;
-        const fog = fogZ * smooth(X1, X1 - 0.5, Math.abs(x));
-        NA[n] = 0; NB[n] = 0;
-        if (fog < 0.02) continue;
-        let v = field.h(x, z, phase), y = v * field.amp;
-        if (m < 1 && prev) { const pv = prev.h(x, z, phase); v = pv * (1 - m) + v * m; y = pv * prev.amp * (1 - m) + y * m; }
-        v *= rise; y *= AMP * rise;
-        const x1 = x * yc - z * ys, z1 = x * ys + z * yc;
-        const y2 = y * pc - z1 * ps, z2 = y * ps + z1 * pc + DIST;
-        const k = F / z2, sx = cx + x1 * k, sy = cy - y2 * k, size = dx * k * 0.95;
-        if (sx < -size * 2 || sx > w + size * 2 || sy < -size * 2 || sy > h + size * 2) continue;
-        const base = alphaMax * fog * (0.4 + 0.6 * (v + 1) / 2);
-        NX[n] = sx; NY[n] = sy; NS[n] = size; NB[n] = base; NA[n] = base * VEIL[n]; ND[n] = LET[n] >= 0 ? LET[n] : Math.round((v + 1) * 4.5);
-      }
-    }
-    // Pass 2: the glyphs, far rows first.
-    for (let j = ROWS - 1; j >= 0; j--) for (let i = 0; i < COLS; i++) {
-      const n = j * COLS + i; let a = NA[n]; if (a < 0.004) continue;
-      const size = NS[n] * SCALE;
-      let g = ND[n], ox = 0;
-      if (now < GUNTIL[n]) {                                            // glitching: a new glyph every 55ms, a small jolt, full strength
-        g = scramble(n, now); a = NB[n]; ox = ((scramble(n + 7, now) % 3) - 1) * size * 0.06;
-      }
-      c.globalAlpha = a;
-      c.drawImage(sprites[g], NX[n] - size / 2 + ox, NY[n] - size / 2, size, size);
-    }
-    c.globalAlpha = 1;
+  let aimX = 0, aimY = 0, leanX = 0, leanY = 0;
+  if (fine && !reduce) {
+    addEventListener('pointermove', e => { aimX = e.clientX / W - .5; aimY = e.clientY / H - .5; }, { passive: true });
+    document.addEventListener('pointerleave', () => { aimX = aimY = 0; });
   }
 
-  let raf = 0, t0 = performance.now(), running = false, riseT0 = 0;
-  const RISE_MS = 2600;
+  const t0 = performance.now();
+  let onT0 = 0, running = false, raf = 0;
+  function render(now) {
+    const t = (now - t0) / 1000;
+    // camera: current view, moving between views, and a slow drift so the stone breathes
+    let eye = VIEWS[view][0], tar = VIEWS[view][1];
+    if (from) {
+      const k = Math.min(1, (now - moveT0) / moveDur), e = ease(k);
+      const f = from === 'arrival' ? ARRIVAL : VIEWS[from];
+      eye = lerp(f[0], eye, e); tar = lerp(f[1], tar, e);
+      if (k >= 1) from = null;
+    }
+    const dr = reduce ? 0 : 1;
+    eye = [eye[0] + Math.sin(t * .11) * .18 * dr, eye[1] + Math.sin(t * .07) * .05 * dr, eye[2] + Math.sin(t * .09) * .45 * dr];
+    leanX += (aimX * .06 - leanX) * .05; leanY += (-aimY * .04 - leanY) * .05;
+    // the scanning front: sweeps up the loggia on arrival, then breathes far down the nave
+    const since = onT0 ? Math.max(0, (now - onT0) / 1000) : 0;
+    const arrive = Math.min(1, since / ARRIVE_S), scan = reduce ? 16 : ease(arrive) * 14 + 0.4 + (arrive >= 1 ? Math.sin((since - ARRIVE_S) * .25) * 3 : 0);
+    // scan lines: one runs out through the building every few seconds once the scene has settled
+    let pulse = -10;
+    if (!reduce && since > ARRIVE_S + .8) { const ph = ((since - ARRIVE_S - .8) % PULSE_S) / PULSE_S; if (ph < .62) pulse = ease(ph / .62) * 26; }
+    const fade = onT0 ? Math.min(1, since / 1.4) : 0;
+    // pass 1: the scene into the texture
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, cv.width, cv.height);
+    gl.useProgram(pr);
+    gl.uniform2f(U.uRes, cv.width, cv.height); gl.uniform1f(U.uTime, t);
+    gl.uniform3fv(U.uPos, eye); gl.uniform3fv(U.uTar, tar);
+    gl.uniform1f(U.uDark, COL.dark); gl.uniform1f(U.uScan, scan); gl.uniform1f(U.uPulse, pulse);
+    gl.uniform2f(U.uLean, leanX, leanY);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // pass 2: FXAA and the composite onto the page
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, cv.width, cv.height);
+    gl.useProgram(px);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(X.uTex, 0);
+    gl.uniform2f(X.uRes, cv.width, cv.height); gl.uniform1f(X.uA, renderA || A); gl.uniform1f(X.uIn, fade); gl.uniform1f(X.uTime, t);
+    gl.uniform3fv(X.uInk, COL.ink); gl.uniform3fv(X.uAcc, COL.acc);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  const ARRIVE_S = 3.6, PULSE_S = 5.5, ARRIVE_MS = 4600;
+  let refresh = 1000 / 60, dts = [], ema = 0, slowN = 0, fastN = 0, prevT = 0;
   function frame(now) {
     raf = 0;
-    tiltX += (aimX - tiltX) * 0.05; tiltY += (aimY - tiltY) * 0.05;   // eased, so the plane leans instead of snapping
-    if (morph < 1) { morph = Math.min(1, (now - morphT0) / 1400); if (morph >= 1) prev = null; }
-    const phase = reduce ? 0.6 : ((now - t0) % LOOP) / LOOP * TAU;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-    draw(ctx, W, H, phase, tiltX, tiltY, A_MAX, now);
-    if (running && (!reduce || morph < 1)) raf = requestAnimationFrame(frame);
+    const dt = prevT ? now - prevT : 0; prevT = now;
+    if (dt > 0 && dt < 250) {
+      // learn the display's refresh from the fastest steady frames of the first second
+      if (dts.length < 90) { dts.push(dt); if (dts.length === 90) { const q = dts.slice().sort((a, b) => a - b)[20]; refresh = q < 7.5 ? 1000 / 144 : q < 9.5 ? 1000 / 120 : q < 12.5 ? 1000 / 90 : 1000 / 60; } }
+      ema = ema ? ema * .9 + dt * .1 : dt;
+      if (ema > refresh * 1.3) { fastN = 0; if (++slowN > 20 && scale > MINS) { scale = Math.max(MINS, scale * .85); measure(); slowN = 0; ema = refresh; } }
+      else if (ema < refresh * 1.08) { slowN = Math.max(0, slowN - 1); if (++fastN > 240 && scale < MAXS) { scale = Math.min(MAXS, scale * 1.08); measure(); fastN = 0; } }
+    }
+    render(now);
+    if (running && (!reduce || from || (onT0 && now - onT0 < 1500))) raf = requestAnimationFrame(frame);
   }
   function play() { running = true; if (!raf) raf = requestAnimationFrame(frame); }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { running = false; cancelAnimationFrame(raf); raf = 0; } else play(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { running = false; cancelAnimationFrame(raf); raf = 0; } else { prevT = 0; play(); } });
 
-  function next(force) { prev = field; field = makeField(prev.name, force); morph = 0; morphT0 = performance.now(); play(); }
-  // A still of the current frame at full strength, for print and decks: WozaNumbers.still() in the console.
-  function still() {
-    const k = 2, out = document.createElement('canvas'); out.width = W * k; out.height = H * k;
-    const c = out.getContext('2d'); c.scale(k, k);
-    draw(c, W, H, reduce ? 0.6 : ((performance.now() - t0) % LOOP) / LOOP * TAU, tiltX, tiltY, 1, performance.now());
-    const a = document.createElement('a'); a.download = 'woza-numbers-' + field.name + '.png'; a.href = out.toDataURL('image/png'); a.click();
+  function next(force) {
+    moveDur = MOVE;
+    let n = force && VIEWS[force] ? force : null;
+    while (!n || n === view) n = NAMES[Math.random() * NAMES.length | 0];
+    from = view; view = n; moveT0 = performance.now(); play();
+  }
+  function still(alpha) {
+    renderA = alpha || 0; render(performance.now()); renderA = 0;
+    const a = document.createElement('a'); a.download = 'woza-loggia-' + view + '.png'; a.href = cv.toDataURL('image/png'); a.click();
   }
 
-  measure(); buildSprites();
+  measure(); colors();
   addEventListener('resize', () => { measure(); play(); });
-  if (document.fonts) document.fonts.ready.then(() => { buildSprites(); play(); });
+  new MutationObserver(colors).observe(root, { attributes: true, attributeFilter: ['style', 'class'] });
   play();
-  const on = () => { if (cv.classList.contains('is-on')) return; cv.classList.add('is-on'); riseT0 = performance.now() + (reduce ? -RISE_MS : 350); };
-  if (!root.classList.contains('intro')) on();
-  new MutationObserver(() => { if (!root.classList.contains('intro')) on(); }).observe(root, { attributes: true, attributeFilter: ['class'] });
-  (() => { if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.querySelectorAll('.pill video').forEach(v => { v.removeAttribute('autoplay'); v.pause(); }); })();
-  window.WozaNumbers = { SHAPES, next, still, show: n => next(n), get shape() { return field.name; } };
+  // Arrival: on a first visit the scene opens alone, the eye descending into the nave while the
+  // building resolves; the page's own arrival waits for it (see .intro timings).
+  const on = () => { if (cv.classList.contains('is-on')) return; cv.classList.add('is-on'); onT0 = performance.now() + (reduce ? -9000 : 60);
+    if (root.classList.contains('intro') && !reduce) { from = 'arrival'; moveT0 = onT0; moveDur = ARRIVE_MS; } play(); };
+  on();
+  (() => { if (reduce) document.querySelectorAll('.pill video').forEach(v => { v.removeAttribute('autoplay'); v.pause(); }); })();
+  window.WozaNumbers = { VIEWS, next, still, show: n => next(n), get shape() { return view; } };
 })();
 </script>
 
