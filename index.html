@@ -1489,7 +1489,7 @@ c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21
         const X = x - CX, Z = z - CZ, a = Math.sin(p) * sway, u = X * Math.cos(a) + Z * Math.sin(a), v = -X * Math.sin(a) + Z * Math.cos(a);
         return logoAt(u / S + 0.5, 0.5 - v / S);
       };
-      f.amp = 1.15; return f;
+      f.amp = 0.55; return f;                                      // kept low, so the mark reads as a figure on the sheet
     },
     donut() {
       const R = r(0.5, 0.65), w = r(0.13, 0.18), tilt = r(0.25, 0.45);
