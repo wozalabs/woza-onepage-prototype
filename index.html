@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="v-new">
+<html lang="en" class="v-new w7" style="--ms:3;--cs:4;--ce:11">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -98,6 +98,7 @@
   // "/#" (the mark's link) opens the landing directly; anything else gets the arrival.
   const skipArrival = /#$/.test(location.href);
   document.documentElement.classList.add('js');
+
   if (!skipArrival) document.documentElement.classList.add('intro');
   // Desktop lands on the sheet alone; the content opens when a chapter is chosen.
   if (matchMedia('(min-width:901px) and (orientation:landscape)').matches) document.documentElement.classList.add('idle');
@@ -722,6 +723,31 @@ a.row--link:hover .c-what,a.row--link:hover .c-outlet,a.row--link:hover .c-name{
   .v-new .base .seals{flex-direction:row;align-items:flex-end;}
   .v-new .base .seal{width:auto;height:clamp(44px,3.4vw,58px);}
   .v-new .clients{margin-bottom:0;}
+}
+
+/* ── Layout: the index on three columns, the chapters on the next seven (4 to 10). ── */
+@media (min-width:901px) and (orientation:landscape){
+  html.w8{--span:8;} html.w7{--span:7;} html.w6{--span:6;}
+  .marks{grid-column:1 / var(--cs,4);}
+  .chapters{grid-column:var(--cs,4) / var(--ce,13);}
+  .mark{width:calc(var(--col) * .72);}                                                       /* a little under one column */
+  .v-new .menu a{font-size:clamp(24px,min(5.4svh,(var(--ms,3) * var(--col) + (var(--ms,3) - 1) * var(--gut-px)) / 5.5),76px);}   /* the index fits its columns */
+  :is(.w8,.w7,.w6) .body{grid-template-columns:repeat(var(--span),1fr);}
+  :is(.w8,.w7,.w6) .body > *,:is(.w8,.w7,.w6) .pairs > div,:is(.w8,.w7,.w6) .lead{grid-column:1 / -1;}
+  :is(.w8,.w7,.w6) .pairs dd{grid-column:3 / -1;}
+  :is(.w8,.w7,.w6) .col-l{grid-column:1 / 4;} :is(.w8,.w7,.w6) .col-r{grid-column:4 / -1;}
+  :is(.w8,.w7,.w6) .figs li{grid-template-columns:repeat(var(--span),1fr);}
+  :is(.w8,.w7,.w6) .figs .n{grid-column:1 / 4;} :is(.w8,.w7,.w6) .figs .who{grid-column:4 / -1;}
+  :is(.w8,.w7) .cases{grid-template-columns:repeat(3,1fr);} :is(.w8,.w7) .case{grid-column:auto;}
+  .w6 .case{grid-column:span 2;}
+  :is(.w8,.w7) #proof .body > .headline,:is(.w8,.w7) #team .body > .headline{grid-column:1 / 5;}
+  :is(.w8,.w7) #proof .body > .headline + .text,:is(.w8,.w7) #team .body > .headline + .text{grid-column:5 / -1;}
+  .w6 #proof .body > .headline,.w6 #team .body > .headline{grid-column:1 / 4;}
+  .w6 #proof .body > .headline + .text,.w6 #team .body > .headline + .text{grid-column:4 / -1;}
+  .w6 .signals .c-outlet{grid-column:3 / 4;} .w6 .signals .c-what{grid-column:4 / -1;}
+  :is(.w8,.w7,.w6) .hero .headline{font-size:calc((var(--span) * var(--col) + (var(--span) - 1) * var(--gut-px)) / 9.95);}
+  :is(.w8,.w7) .hero .hero__lede{grid-column:1 / 4;} :is(.w8,.w7) .hero .hero__claim,:is(.w8,.w7) .hero .hero__links{grid-column:5 / -1;}
+  .w6 .hero .hero__lede{grid-column:1 / 4;} .w6 .hero .hero__claim,.w6 .hero .hero__links{grid-column:4 / -1;}
 }
 </style>
 </head>
