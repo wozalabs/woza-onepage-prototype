@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="en" class="coral">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Woza Labs — Reef</title>
+<meta name="description" content="Woza Labs: the technologies behind the physical economy, drawn as a living reef.">
+<meta name="theme-color" content="#0B0B0B">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20473%20474%22%3E%3Crect%20width%3D%22473%22%20height%3D%22474%22%20fill%3D%22%23EEE%22/%3E%3Cg%20transform%3D%22translate%280%2C474%29%20scale%280.1%2C-0.1%29%22%3E%3Cpath%20fill%3D%22%23111%22%20d%3D%22M2171%203828%20c6%20-24%2060%20-225%20120%20-448%20l109%20-405%20-78%20-77%20-77%20-77%20-99%2027%0Ac-54%2015%20-103%2034%20-107%2042%20-14%2025%20-240%20882%20-235%20888%208%207%20316%2090%20338%2091%2012%201%2021%0A-12%2029%20-41z%20m1389%20-523%20c0%20-5%20-221%20-230%20-490%20-500%20-270%20-269%20-490%20-493%20-490%0A-496%200%20-4%2081%20-308%20179%20-675%2099%20-368%20178%20-670%20176%20-672%20-6%20-7%20-340%20-92%20-348%0A-89%20-6%202%20-22%2048%20-37%20103%20-15%2054%20-82%20306%20-150%20559%20-68%20253%20-125%20462%20-127%20465%0A-2%202%20-192%20-184%20-421%20-413%20l-417%20-417%20-133%20132%20-132%20133%20417%20417%20c229%20229%20415%0A419%20413%20422%20-3%202%20-252%2070%20-555%20150%20-302%2081%20-557%20150%20-566%20154%20-14%206%20-11%2027%2031%0A182%2045%20166%2049%20175%2071%20172%2013%20-1%20318%20-82%20678%20-178%20l654%20-176%20496%20496%20496%20496%0A127%20-127%20c71%20-70%20128%20-132%20128%20-138z%20m-145%20-1021%20c242%20-65%20444%20-120%20448%20-124%0A7%20-6%20-76%20-346%20-86%20-357%20-3%20-2%20-900%20236%20-903%20240%20-1%201%20-14%2049%20-28%20106%20l-28%20104%0A73%2073%20c41%2041%2076%2074%2079%2074%203%200%20203%20-52%20445%20-116z%22/%3E%3C/g%3E%3C/svg%3E">
+<script>
+/* ─────────────────────────────────────────────────────────────
+   Palette: a new one on every load, verified before first paint.
+
+   Built in OKLCH, clamped to sRGB, then checked against WCAG:
+     ink        on canvas  ≥ 12:1   (body text, AAA with headroom)
+     secondary  on canvas  ≥ 7:1    (every small text step, AAA)
+     dim        on canvas  ≥ 4.5:1  (large display text only, AAA large)
+     accent     on canvas  ≥ 3:1    (non-text marks only: squares, ticks)
+   A candidate that misses any of these is thrown away.
+   ───────────────────────────────────────────────────────────── */
+(() => {
+  const srgb = v => v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+  function oklch(L, C, H) {
+    const h = H * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+    const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+    const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+    return [ 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s].map(srgb);
+  }
+  function toRgb(L, C, H) {
+    let c = C, v = oklch(L, c, H);
+    while (c > 0 && v.some(x => x < -0.0015 || x > 1.0015)) { c -= 0.004; v = oklch(L, c, H); }
+    return v.map(x => Math.max(0, Math.min(255, Math.round(x * 255))));
+  }
+  const lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const lum = p => 0.2126 * lin(p[0]) + 0.7152 * lin(p[1]) + 0.0722 * lin(p[2]);
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const over = (ink, cv, a) => ink.map((v, i) => Math.round(a * v + (1 - a) * cv[i]));
+  const hex = p => '#' + p.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  /* The window-light overlay sits over everything, text included. Light palettes get
+     its shadow (multiply, darkest spot ×0.849); dark palettes get its light (screen,
+     brightest pane +10%). Every ratio is taken on the plain page and under the overlay's
+     strongest spot, and the worse of the two must pass. */
+  const SHADE = 0.849, GLOW = 0.10;
+  // The grain moves any pixel by at most 3% (multiply on light, screen on dark); its
+  // extreme is stacked on the overlay's, so the worst case is checked, not the average.
+  const NOISE = 0.03;
+  const under = (p, dark) => dark ? p.map(v => Math.round(255 - (255 - v) * (1 - GLOW) * (1 - NOISE)))
+                                  : p.map(v => Math.round(v * SHADE * (1 - NOISE)));
+  // The number plane puts up to DIGIT_ALPHA of ink behind any text, so every ratio is also
+  // taken on that darker (light palettes) or lighter (dark palettes) ground.
+  const DIGIT_ALPHA = 0.14;
+  let INK = null;
+  const plain = (a, b, dark) => Math.min(ratio(a, b), ratio(under(a, dark), under(b, dark)));
+  const worst = (a, b, dark) => { const m = plain(a, b, dark); if (!INK) return m; const g = over(INK, b, DIGIT_ALPHA); return Math.min(m, plain(a, g, dark)); };
+  // Smallest opacity of ink over canvas that clears a target (with a margin for rounding).
+  const step = (ink, cv, target, dark) => {
+    for (let a = 0.2; a <= 1.0001; a += 0.01) if (worst(over(ink, cv, a), cv, dark) >= target + 0.05) return Math.ceil(a * 100) / 100;
+    return null;
+  };
+
+  function make() {
+    for (let t = 0; t < 400; t++) {
+      INK = null;
+      const hue = rnd(0, 360), dark = Math.random() < 0.55;
+      const canvas = toRgb(dark ? rnd(0.12, 0.2) : rnd(0.93, 0.975), rnd(0.004, 0.03), hue);
+      const inkH = (hue + rnd(-30, 30) + 360) % 360, inkC = rnd(0.01, 0.06);
+      let ink = null;
+      for (let L = dark ? 0.99 : 0.02; dark ? L > 0.5 : L < 0.55; L += dark ? -0.006 : 0.006) {
+        const c = toRgb(L, inkC, inkH);
+        if (worst(c, canvas, dark) >= 12) ink = c; else break;
+      }
+      if (!ink) continue;
+      INK = ink;
+      if (worst(ink, canvas, dark) < 7.05) { INK = null; continue; }   // body text on the digit ground: AAA
+      const secondary = step(ink, canvas, 7, dark), dim = step(ink, canvas, 4.5, dark);
+      if (secondary === null || dim === null) continue;
+      // Accent: a saturated, clearly different hue, used for marks only (never text).
+      const accH = (hue + rnd(120, 240)) % 360;
+      let accent = null;
+      for (let L = dark ? 0.62 : 0.72; dark ? L < 0.95 : L > 0.3; L += dark ? 0.01 : -0.01) {
+        const c = toRgb(L, 0.19, accH);
+        if (worst(c, canvas, dark) >= 3.2) { accent = c; break; }
+      }
+      if (!accent) { INK = null; continue; }
+      const res = { canvas: hex(canvas), ink: hex(ink), accent: hex(accent), secondary, dim, dark,
+               body: +worst(ink, canvas, dark).toFixed(2),
+               sub: +worst(over(ink, canvas, secondary), canvas, dark).toFixed(2),
+               large: +worst(over(ink, canvas, dim), canvas, dark).toFixed(2),
+               mark: +worst(accent, canvas, dark).toFixed(2) };
+      INK = null; return res;
+    }
+    return null;
+  }
+  // "/#" (the mark's link) opens the landing directly; anything else gets the arrival.
+  const skipArrival = /#$/.test(location.href);
+  document.documentElement.classList.add('js');
+
+  if (!skipArrival) document.documentElement.classList.add('intro');
+  // Desktop lands on the sheet alone; the content opens when a chapter is chosen.
+  const t = make(), r = document.documentElement;
+  if (t) {
+    r.style.setProperty('--canvas', t.canvas);
+    r.classList.toggle('is-dark', t.dark);
+    r.style.setProperty('--ink', t.ink);
+    r.style.setProperty('--accent', t.accent);
+    r.style.setProperty('--secondary', t.secondary);
+    r.style.setProperty('--dim', t.dim);
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', t.canvas);
+    // Favicon: the symbol on this load's canvas, the asterisk in its ink.
+    const ic = document.querySelector('link[rel="icon"]');
+    if (ic) ic.href = 'data:image/svg+xml,' + encodeURIComponent(decodeURIComponent(ic.href.slice(ic.href.indexOf(',') + 1)).replace('#EEE', t.canvas).replace('#111', t.ink));
+    console.info(`palette ${t.canvas} / ${t.ink} / ${t.accent} — body ${t.body}:1, small ${t.sub}:1, large ${t.large}:1, marks ${t.mark}:1`);
+  }
+  window.WozaPalette = { make, under, worst, DIGIT_ALPHA };
+})();
+</script>
+<link rel="preload" href="fonts/NeueMontreal-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Woza Labs — reef
+
+   One scene, one scroll. The page is a dive along a reef: each
+   section stops the eye at a coral, and the scroll carries it on
+   to the next. The reef is drawn the way the other variants draw
+   their buildings: ink over the page's own canvas, its lit sides
+   as a naturalist's line drawing, its shadows set through a
+   one-bit dither, and the water between as layers of grain.
+   ───────────────────────────────────────────────────────────── */
+@font-face{
+  font-family:'Neue Montreal';
+  src:url('fonts/NeueMontreal-Regular.woff2') format('woff2');
+  font-weight:400; font-style:normal; font-display:swap;
+}
+:root{
+  --canvas:#0B0B0B;          /* fallback; a verified palette is applied before paint */
+  --ink:#ECECEC;
+  --accent:#F2B535;
+  --secondary:.86;
+  --dim:.62;
+  --ink-2:color-mix(in srgb, var(--ink) calc(var(--secondary) * 100%), var(--canvas));   /* small text: ≥7:1 */
+  --ink-3:color-mix(in srgb, var(--ink) calc(var(--dim) * 100%), var(--canvas));         /* large text only: ≥4.5:1 */
+  --hair:color-mix(in srgb, var(--ink) 22%, transparent);
+  --m:clamp(20px,3.2vw,64px);
+  --pad:clamp(16px,1.6vw,32px);
+  --fs:clamp(13px,.94vw,18px);
+  --fl:clamp(24px,2.5vw,48px);
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  /* The bands that carry type. The scene is held to the palette's verified strength
+     (DIGIT_ALPHA) inside them, so every line of text stays AAA. */
+  --tb:calc(var(--pad) + 44px);
+  --bb:calc(var(--m) + 230px);
+  font-family:'Neue Montreal','Helvetica Neue',Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;}
+html{background:var(--canvas);scroll-behavior:smooth;font-synthesis:none;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{margin:0;color:var(--ink);font-size:var(--fs);line-height:1.3;letter-spacing:0;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+::selection{background:var(--ink);color:var(--canvas);}
+a{color:inherit;text-decoration:none;}
+a:hover{text-decoration:underline;text-underline-offset:.18em;text-decoration-thickness:1px;}
+:focus-visible{outline:1px solid var(--accent);outline-offset:4px;}
+p,h1,h2,ol{margin:0;padding:0;}
+h1,h2{font-weight:400;}
+ol{list-style:none;}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;}
+
+/* ── The scene ─────────────────────────────────────────────── */
+.stage{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity 1600ms ease;
+  -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.14) var(--tb), #000 calc(var(--tb) + 120px), #000 calc(100% - var(--bb) - 140px), rgba(0,0,0,.14) calc(100% - var(--bb)));
+          mask-image:linear-gradient(to bottom, rgba(0,0,0,.14) var(--tb), #000 calc(var(--tb) + 120px), #000 calc(100% - var(--bb) - 140px), rgba(0,0,0,.14) calc(100% - var(--bb)));}
+.stage.is-on{opacity:1;}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+.stage .gl{image-rendering:pixelated;}           /* rendered at a whole fraction of the screen, so the grain stays square */
+/* While a specimen is shown for export, the whole frame is the picture. */
+.specimen .stage{-webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.14) var(--tb), #000 calc(var(--tb) + 120px));mask-image:linear-gradient(to bottom, rgba(0,0,0,.14) var(--tb), #000 calc(var(--tb) + 120px));}
+.specimen .cap,.specimen .idx{opacity:0 !important;pointer-events:none;}
+@media (prefers-contrast:more){.stage{opacity:.35 !important;}}
+
+/* ── Head of the sheet ─────────────────────────────────────── */
+.top{position:fixed;z-index:10;top:0;left:0;right:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:start;
+  padding:var(--pad) var(--m) 0;}
+.mark{display:block;width:clamp(112px,9vw,172px);color:var(--ink);}
+.mark svg{display:block;width:100%;height:auto;}
+.mark__ast{fill:var(--canvas);}
+.version{display:flex;gap:1em;align-items:baseline;line-height:1;color:var(--ink-2);padding-top:.2em;}
+.version a{color:var(--ink-2);transition:color 200ms ease;}
+.version a:hover{color:var(--ink);text-decoration:none;}
+.version a[aria-current="page"]{color:var(--ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+.tool{justify-self:end;display:flex;gap:1.4em;line-height:1;padding-top:.2em;}
+.tool button{color:var(--ink-2);transition:color 200ms ease, transform 160ms var(--ease-out);padding:.5em 0;margin:-.5em 0;}
+.tool button:hover,.tool button[aria-expanded="true"]{color:var(--ink);}
+.tool button:active{transform:scale(.97);}
+
+/* ── Captions: one per stop, in the lower band ─────────────── */
+.track{position:relative;z-index:1;}
+.st{height:120vh;}
+.st:last-child{height:100vh;}
+.cap{position:fixed;left:var(--m);bottom:var(--m);width:min(32em,calc(100vw - 2 * var(--m)));
+  display:grid;gap:.9em;opacity:0;transform:translateY(10px);pointer-events:none;
+  transition:opacity 260ms ease, transform 260ms ease;}
+.st.is-current .cap{opacity:1;transform:none;pointer-events:auto;
+  transition:opacity 700ms ease 120ms, transform 900ms var(--ease-out) 120ms;}
+.cap__k{display:flex;gap:.8em;color:var(--ink-2);}
+.cap__t{font-size:var(--fl);line-height:1.04;max-width:16em;text-wrap:balance;}
+.cap__d{color:var(--ink-2);max-width:30em;text-wrap:pretty;}
+.cap__links{display:flex;flex-wrap:wrap;gap:.4em 1.6em;margin-top:.3em;}
+.cap__links a{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+.cap__links a.quiet{color:var(--ink-2);}
+
+/* ── The index, lower right: where the dive is ─────────────── */
+.idx{position:fixed;z-index:2;right:var(--m);bottom:var(--m);transition:opacity 300ms ease;}
+.idx a{display:grid;grid-template-columns:2.2em auto;padding:.14em 0;color:var(--ink-2);transition:color 200ms ease;}
+.idx a:hover{color:var(--ink);text-decoration:none;}
+.idx a[aria-current="step"]{color:var(--ink);}
+.idx a[aria-current="step"] span:last-child{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+
+/* ── Export ────────────────────────────────────────────────── */
+.exp{position:fixed;z-index:30;top:calc(var(--pad) + 2.2em);right:var(--m);width:min(23em,calc(100vw - 2 * var(--m)));
+  display:grid;gap:1.1em;padding:1.3em 1.4em 1.4em;background:var(--canvas);border:1px solid var(--hair);
+  transform-origin:100% 0;opacity:0;transform:scale(.97) translateY(-4px);visibility:hidden;
+  transition:opacity 150ms ease, transform 150ms ease, visibility 0s linear 150ms;}
+.exp[data-open]{opacity:1;transform:none;visibility:visible;
+  transition:opacity 200ms var(--ease-out), transform 200ms var(--ease-out), visibility 0s;}
+.exp fieldset{border:0;margin:0;padding:0;display:grid;grid-template-columns:5.2em 1fr;gap:.2em .8em;}
+.exp legend{float:left;padding:0;color:var(--ink-2);padding-top:.35em;}
+.opt{display:flex;flex-wrap:wrap;gap:0 1em;}
+.opt label{position:relative;cursor:pointer;padding:.35em 0;}
+.opt input{position:absolute;opacity:0;width:1px;height:1px;margin:0;}
+.opt span{color:var(--ink-2);transition:color 200ms ease;}
+.opt label:hover span{color:var(--ink);}
+.opt input:checked + span{color:var(--ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+.opt input:focus-visible + span{outline:1px solid var(--accent);outline-offset:3px;}
+.exp__go{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--hair);padding-top:1em;}
+.exp__go button{padding:.4em 0;transition:color 200ms ease, transform 160ms var(--ease-out);}
+.exp__go button:active{transform:scale(.97);}
+.exp__go .quiet{color:var(--ink-2);}
+.exp__go .quiet:hover{color:var(--ink);}
+.exp__go .do{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+.exp__go button:disabled{color:var(--ink-2);cursor:progress;}
+.exp__note{color:var(--ink-2);}
+
+/* ── Arrival ───────────────────────────────────────────────── */
+.js .top > *{opacity:0;transition:opacity 900ms ease;}
+.js.ready .top > *{opacity:1;}
+.js .top > :nth-child(2){transition-delay:80ms;}
+.js .top > :nth-child(3){transition-delay:160ms;}
+.js:not(.ready) .cap,.js:not(.ready) .idx{opacity:0 !important;}
+
+@media (max-width:760px), (orientation:portrait){
+  :root{--bb:calc(var(--m) + 290px);}
+  .top{grid-template-columns:1fr auto;}
+  .version{grid-column:1 / -1;grid-row:2;padding-top:1em;}
+  .idx{display:none;}
+}
+@media (prefers-reduced-motion:reduce){
+  .cap,.st.is-current .cap,.exp,.exp[data-open]{transform:none !important;}
+}
+</style>
+</head>
+<body>
+<div class="stage" aria-hidden="true"><canvas class="gl"></canvas><canvas class="dust"></canvas></div>
+
+<header class="top">
+  <a class="mark" href="#reef" aria-label="Woza Labs, back to the start"><svg viewBox="0 0 3584 537" fill="currentColor" aria-hidden="true"><g transform="translate(0,537) scale(0.1,-0.1)"><path d="M35012 5350 c-228 -61 -407 -244 -467 -475 -19 -76 -19 -231 0 -314
+25 -105 89 -216 176 -302 62 -63 93 -85 170 -122 52 -25 118 -50 147 -56 76
+-16 238 -14 307 4 195 50 381 214 449 398 50 132 56 270 20 412 -51 196 -219
+371 -431 446 -87 31 -273 36 -371 9z m281 -145 c92 -19 160 -58 238 -135 102
+-100 149 -212 149 -349 0 -42 -6 -99 -14 -127 -45 -168 -192 -315 -361 -359
+-310 -80 -625 165 -625 485 0 223 159 424 383 485 68 18 146 18 230 0z"/><path d="M34950 4720 l0 -300 65 0 64 0 3 103 3 102 65 0 65 0 53 -102 53
+-103 73 0 74 0 -60 116 -60 116 35 36 c44 45 57 78 57 142 0 86 -32 137 -105
+171 -34 16 -66 19 -212 19 l-173 0 0 -300z m307 190 c53 -32 57 -114 7 -161
+-22 -21 -35 -24 -102 -24 l-77 0 -3 89 c-2 49 -1 95 2 103 9 22 134 17 173 -7z"/><path d="M22780 3000 l0 -2350 305 0 305 0 0 2350 0 2350 -305 0 -305 0 0
+-2350z"/><path d="M27820 3000 l0 -2350 235 0 235 0 0 230 0 231 46 -58 c231 -291 651
+-443 1226 -443 492 0 827 116 1089 379 300 300 441 737 443 1376 1 351 -32
+597 -114 846 -145 443 -379 696 -760 823 -199 66 -359 89 -630 89 -217 0 -339
+-12 -510 -50 -253 -56 -407 -134 -567 -287 l-83 -79 0 822 0 821 -305 0 -305
+0 0 -2350z m1935 555 c221 -39 365 -109 470 -227 100 -114 191 -352 227 -595
+20 -138 17 -599 -5 -741 -67 -427 -207 -655 -465 -761 -156 -64 -289 -85 -527
+-84 -363 1 -594 72 -756 233 -64 63 -84 92 -127 180 -105 216 -152 472 -152
+825 0 412 67 701 211 905 102 146 320 249 586 279 123 14 429 6 538 -14z"/><rect width="4730" height="4740" fill="currentColor"/><path class="mark__ast" d="M2171 3828 c6 -24 60 -225 120 -448 l109 -405 -78 -77 -77 -77 -99 27
+c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21
+-12 29 -41z m1389 -523 c0 -5 -221 -230 -490 -500 -270 -269 -490 -493 -490
+-496 0 -4 81 -308 179 -675 99 -368 178 -670 176 -672 -6 -7 -340 -92 -348
+-89 -6 2 -22 48 -37 103 -15 54 -82 306 -150 559 -68 253 -125 462 -127 465
+-2 2 -192 -184 -421 -413 l-417 -417 -133 132 -132 133 417 417 c229 229 415
+419 413 422 -3 2 -252 70 -555 150 -302 81 -557 150 -566 154 -14 6 -11 27 31
+182 45 166 49 175 71 172 13 -1 318 -82 678 -178 l654 -176 496 496 496 496
+127 -127 c71 -70 128 -132 128 -138z m-145 -1021 c242 -65 444 -120 448 -124
+7 -6 -76 -346 -86 -357 -3 -2 -900 236 -903 240 -1 1 -14 49 -28 106 l-28 104
+73 73 c41 41 76 74 79 74 3 0 203 -52 445 -116z"/><path d="M12565 4124 c-389 -30 -650 -109 -891 -270 -241 -161 -454 -491 -544
+-844 -96 -374 -99 -886 -8 -1275 130 -561 470 -919 1003 -1058 191 -50 298
+-62 575 -62 280 0 379 11 587 65 508 131 844 470 988 996 97 353 111 798 39
+1194 -61 334 -218 656 -414 850 -214 213 -510 343 -887 389 -93 12 -372 21
+-448 15z m320 -554 c360 -40 561 -168 696 -445 106 -217 139 -374 146 -691 7
+-302 -16 -489 -86 -696 -129 -382 -364 -553 -812 -589 -340 -28 -638 46 -818
+204 -94 82 -186 229 -244 394 -110 307 -112 866 -5 1203 128 400 346 572 793
+624 67 7 245 5 330 -4z"/><path d="M19149 4120 c-462 -26 -793 -147 -1000 -368 -195 -208 -295 -441
+-306 -719 l-6 -133 305 0 305 0 6 104 c10 175 71 315 176 407 25 22 87 60 136
+84 156 78 309 105 592 105 376 0 619 -65 753 -200 68 -70 129 -187 159 -305
+21 -82 45 -264 37 -272 -3 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983 -140
+-549 -128 -819 -334 -916 -699 -29 -107 -26 -418 4 -530 90 -331 332 -559 726
+-684 187 -60 301 -74 581 -75 219 -1 266 2 379 23 414 74 743 248 949 501 l37
+45 0 -267 0 -268 240 0 240 0 0 1043 c0 1068 -4 1226 -40 1440 -70 421 -286
+714 -631 855 -249 102 -693 155 -1110 132z m1161 -1932 c-1 -414 -128 -676
+-420 -867 -193 -127 -428 -191 -700 -191 -300 0 -539 71 -669 198 -93 92 -131
+187 -131 333 0 115 25 184 92 255 87 92 253 159 528 214 153 30 1189 177 1263
+179 l37 1 0 -122z"/><path d="M25369 4120 c-342 -19 -633 -97 -824 -221 -134 -87 -264 -229 -350
+-384 -82 -146 -135 -354 -135 -527 l0 -88 303 0 304 0 6 103 c15 243 109 394
+309 491 161 79 313 106 595 106 278 0 498 -39 638 -113 169 -90 271 -277 305
+-561 6 -54 9 -100 6 -103 -2 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983
+-140 -538 -125 -799 -317 -906 -669 -26 -84 -28 -103 -28 -275 -1 -214 16
+-303 83 -444 50 -106 84 -154 167 -238 154 -156 387 -272 654 -327 310 -65
+722 -50 1020 35 286 83 556 244 707 423 l58 70 3 -265 2 -264 240 0 240 0 0
+1048 c0 641 -4 1101 -11 1187 -25 336 -86 542 -223 755 -154 238 -403 377
+-796 444 -192 33 -523 49 -751 36z m1161 -1928 c0 -390 -116 -652 -373 -841
+-184 -135 -411 -208 -682 -218 -467 -19 -778 125 -850 391 -24 89 -17 231 14
+303 63 143 242 234 596 304 149 29 1186 176 1258 178 l37 1 0 -118z"/><path d="M32865 4120 c-484 -27 -811 -140 -1029 -357 -116 -115 -185 -234
+-227 -388 -18 -66 -22 -108 -23 -240 -1 -186 11 -243 77 -370 74 -143 257
+-302 443 -386 161 -72 611 -186 1299 -329 173 -36 273 -68 365 -116 135 -70
+216 -153 241 -247 17 -64 6 -167 -25 -231 -35 -72 -137 -166 -228 -212 -156
+-79 -350 -108 -665 -101 -245 5 -343 19 -495 71 -119 41 -192 83 -276 161
+-127 117 -186 247 -198 439 l-7 106 -298 0 -299 0 0 -96 c0 -231 66 -459 187
+-641 50 -77 180 -212 262 -272 269 -199 666 -301 1176 -301 573 0 957 121
+1220 385 183 182 266 377 266 620 0 145 -20 239 -77 355 -39 79 -62 110 -133
+181 -138 138 -317 246 -537 322 -115 40 -427 114 -769 182 -258 52 -368 79
+-517 131 -207 72 -325 151 -374 250 -24 49 -26 63 -22 138 6 107 37 175 114
+245 137 126 355 181 709 181 189 0 300 -11 420 -41 319 -81 514 -313 515 -611
+l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
+-1349 365z"/><path d="M5713 4078 c7 -20 1058 -3359 1069 -3395 l9 -33 317 0 317 0 420
+1299 c231 715 421 1296 423 1293 2 -4 198 -587 435 -1297 l432 -1290 329 0
+330 0 553 1710 c304 941 553 1713 553 1718 0 4 -149 6 -332 5 l-332 -3 -395
+-1307 c-218 -719 -398 -1305 -400 -1302 -3 3 -202 591 -442 1307 l-436 1302
+-289 0 -288 0 -291 -885 c-159 -487 -350 -1069 -424 -1293 -73 -225 -137 -405
+-141 -400 -4 4 -165 564 -358 1243 -194 679 -359 1259 -367 1288 l-16 52 -340
+0 c-269 0 -340 -3 -336 -12z"/><path d="M14612 3823 l3 -268 983 -3 c540 -1 982 -4 982 -7 0 -3 -320 -391
+-712 -863 -392 -471 -753 -906 -803 -966 -49 -60 -174 -211 -277 -335 l-188
+-225 0 -253 0 -253 1420 0 1420 0 0 265 0 265 -1036 2 -1036 3 1006 1193 1006
+1193 0 259 0 260 -1385 0 -1385 0 2 -267z"/></g></svg></a>
+  <nav class="version" aria-label="Version"><span>Version</span><a href="index.html">Current</a><a href="walk.html">New</a><a href="nave.html">Nave</a><a href="coral.html" aria-current="page">Reef</a></nav>
+  <div class="tool"><button type="button" class="exp-btn" aria-expanded="false" aria-controls="export">Export</button></div>
+</header>
+
+<div class="exp" id="export" role="dialog" aria-label="Export a still" inert>
+  <fieldset><legend>Subject</legend>
+    <div class="opt">
+      <label><input type="radio" name="subj" value="view" checked><span>This view</span></label>
+      <label><input type="radio" name="subj" value="0"><span>Staghorn</span></label>
+      <label><input type="radio" name="subj" value="1"><span>Brain</span></label>
+      <label><input type="radio" name="subj" value="2"><span>Sea fan</span></label>
+      <label><input type="radio" name="subj" value="3"><span>Table</span></label>
+    </div>
+  </fieldset>
+  <fieldset><legend>Format</legend>
+    <div class="opt">
+      <label><input type="radio" name="fmt" value="deck" checked><span>Deck 16:9</span></label>
+      <label><input type="radio" name="fmt" value="page"><span>Page A4</span></label>
+      <label><input type="radio" name="fmt" value="square"><span>Square</span></label>
+    </div>
+  </fieldset>
+  <fieldset><legend>Ground</legend>
+    <div class="opt">
+      <label><input type="radio" name="bg" value="solid" checked><span>Solid</span></label>
+      <label><input type="radio" name="bg" value="none"><span>Transparent</span></label>
+    </div>
+  </fieldset>
+  <fieldset><legend>Ink</legend>
+    <div class="opt">
+      <label><input type="radio" name="ink" value="palette" checked><span>Palette</span></label>
+      <label><input type="radio" name="ink" value="black"><span>Black</span></label>
+      <label><input type="radio" name="ink" value="white"><span>White</span></label>
+    </div>
+  </fieldset>
+  <p class="exp__note" aria-live="polite">3840 by 2160 pixels, PNG.</p>
+  <div class="exp__go"><button type="button" class="quiet reroll">New palette</button><button type="button" class="do">Download</button></div>
+</div>
+
+<main class="track">
+  <section class="st" id="reef" aria-labelledby="t0">
+    <div class="cap">
+      <p class="cap__k"><span>00</span><span>Reef</span></p>
+      <h1 class="cap__t" id="t0">The next frontier of intelligence is physical.</h1>
+      <p class="cap__d">A reef is an operational system, grown rather than assembled, layer on layer, by living things. Scroll to walk through it.</p>
+    </div>
+  </section>
+  <section class="st" id="ark" aria-labelledby="t1">
+    <div class="cap">
+      <p class="cap__k"><span>01</span><span>Ark</span></p>
+      <h2 class="cap__t" id="t1">Structure physical reality.</h2>
+      <p class="cap__d">Staghorn coral. One rule of growth, repeated branch after branch, so the whole can be read from any part of it.</p>
+    </div>
+  </section>
+  <section class="st" id="orion" aria-labelledby="t2">
+    <div class="cap">
+      <p class="cap__k"><span>02</span><span>Orion</span></p>
+      <h2 class="cap__t" id="t2">Connect science and intelligence.</h2>
+      <p class="cap__d">Brain coral. A single ridge, folded on itself until it covers every surface it touches.</p>
+    </div>
+  </section>
+  <section class="st" id="zenith" aria-labelledby="t3">
+    <div class="cap">
+      <p class="cap__k"><span>03</span><span>Zenith</span></p>
+      <h2 class="cap__t" id="t3">Anticipate change.</h2>
+      <p class="cap__d">Sea fan. It grows across the current, its whole shape set by the water it reads.</p>
+    </div>
+  </section>
+  <section class="st" id="atlas" aria-labelledby="t4">
+    <div class="cap">
+      <p class="cap__k"><span>04</span><span>Atlas</span></p>
+      <h2 class="cap__t" id="t4">Make intelligence operational.</h2>
+      <p class="cap__d">Table coral. Tier over tier, each layer shelters the life beneath it.</p>
+    </div>
+  </section>
+  <section class="st" id="ahead" aria-labelledby="t5">
+    <div class="cap">
+      <p class="cap__k"><span>05</span><span>Ahead</span></p>
+      <h2 class="cap__t" id="t5">Nothing starts from zero.</h2>
+      <p class="cap__d">Technology, human judgment and a shared engineering discipline, working as one.</p>
+      <p class="cap__links"><a href="mailto:hello@wozalabs.com?subject=Deploy%20with%20Woza">Deploy with us</a><a class="quiet" href="mailto:hello@wozalabs.com?subject=Investor%20deck%20request">Request the investor deck</a></p>
+    </div>
+  </section>
+</main>
+
+<nav class="idx" aria-label="Reef">
+  <ol>
+    <li><a href="#reef"><span>00</span><span>Reef</span></a></li>
+    <li><a href="#ark"><span>01</span><span>Ark</span></a></li>
+    <li><a href="#orion"><span>02</span><span>Orion</span></a></li>
+    <li><a href="#zenith"><span>03</span><span>Zenith</span></a></li>
+    <li><a href="#atlas"><span>04</span><span>Atlas</span></a></li>
+    <li><a href="#ahead"><span>05</span><span>Ahead</span></a></li>
+  </ol>
+</nav>
+
+<script>
+/* ─────────────────────────────────────────────────────────────
+   The reef, ray-marched live on the GPU.
+
+   A straight path of raked sand runs through a reef. Four corals stand on its edges,
+   each a growth rule rather than a model:
+   a staghorn that forks and turns by the golden angle, a brain coral cut by one
+   folded ridge, a sea fan that branches in a single plane and knits a net between
+   its twigs, and a table coral that grows in tiers. Around them, a field of smaller
+   colonies, boulders and sea rods that lean with the water.
+
+   How it is drawn: the lit sides as a naturalist's plate (outlines, growth bands,
+   the brain's ridge, the table's rings, the raked path, the ripples); the shadows on the
+   corals through a one-bit stipple, in the same ink; the shadows on the sand hatched;
+   and the water between the eye and each surface as stepped layers, so distance reads
+   as planes, like stage flats. The accent is kept for one thing: the coral under the
+   pointer, lit outward from where it was touched.
+
+   Pass one writes lines, highlight, shadow density and depth into a texture. Pass two
+   finds the depth edges, sets the shadows through the dither and composites ink
+   over the page's own canvas. The same two passes render the exports, at any size,
+   unpremultiplied and read back, so a still for a deck is the scene, not a screenshot.
+   ───────────────────────────────────────────────────────────── */
+(() => {
+  'use strict';
+  const root = document.documentElement;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const stage = document.querySelector('.stage');
+  const cv = stage.querySelector('.gl'), dc = stage.querySelector('.dust'), dx = dc.getContext('2d');
+  const ready = () => root.classList.add('ready');
+  const gl = cv.getContext('webgl', { premultipliedAlpha: true, antialias: false, alpha: true, preserveDrawingBuffer: true });
+  if (!gl) { ready(); return; }
+  const deriv = gl.getExtension('OES_standard_derivatives');
+
+  const TMAX = 72, FOGK = 0.042;
+  const VS = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}';
+
+  const FS = `${deriv ? '#extension GL_OES_standard_derivatives : enable\n#define DERIV 1' : ''}
+precision highp float;
+uniform vec2 uRes, uMouse; uniform float uTime, uMode, uSpec, uDark, uLine, uPick, uHoverR; uniform vec3 uPos, uTar, uHoverP; uniform vec4 uHover;
+const float TMAX = ${TMAX.toFixed(1)}, FOGK = ${FOGK.toFixed(3)};
+// the path runs straight down z, about three wide; the four corals stand on its edges, left and right in turn
+const vec3 H1 = vec3(-2.7, 0., 10.), H2 = vec3(2.9, 0., 24.), H3 = vec3(-2.6, 0., 38.), H4 = vec3(2.8, 0., 52.);
+const float CELL = 3., PATH = 1.5;
+const vec3 SUN = vec3(-0.4492, 0.8486, -0.2795);               // high, from the front left, as through the surface
+
+vec2 rot(vec2 v, float a){ float c = cos(a), s = sin(a); return vec2(c * v.x - s * v.y, s * v.x + c * v.y); }
+float rep(float v, float s){ return (fract(v / s + .5) - .5) * s; }
+float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float vcap(vec3 p, float h, float r){ p.y -= clamp(p.y, 0., h); return length(p) - r; }
+
+// A hairline: the same width on screen at any distance, thinned out before it can shimmer.
+float hair(float v, float period){
+  #ifdef DERIV
+    float f = max(fwidth(v), 1e-5); return (1. - smoothstep(f * uLine * .5, f * (uLine * .5 + 1.), abs(v))) * (1. - smoothstep(.12, .3, f / period));
+  #else
+    return 0.;
+  #endif
+}
+// ── Staghorn: a trunk that forks, turns by the golden angle and leans out, n times.
+float stag(vec3 p, float seed, int n){
+  float d = 1e3, sc = 1.;
+  for (int i = 0; i < 7; i++){
+    if (i >= n) break;
+    float fi = float(i), L = i == 0 ? .3 : .56;
+    vec3 q = p; q.x += .03 * sin(q.y * 5. + seed + fi);
+    d = min(d, vcap(q, L, .085) / sc);
+    p.y -= L;
+    p.xz = rot(p.xz, 2.39996 + seed * .3);
+    p.x = abs(p.x);
+    p.xy = rot(p.xy, .3 + .1 * sin(fi * 1.7 + seed));
+    p *= 1.1; sc *= 1.1;
+  }
+  return d;
+}
+// a thicket rather than a tree: five stems from the same base, each leaning out its own way
+float colony(vec3 q){
+  float d = 1e3;
+  for (int i = 0; i < 5; i++){
+    float fi = float(i), an = fi * 2.39996 + .4, s = .95 - .07 * fi;
+    vec3 a = q - vec3(cos(an), 0., sin(an)) * (.18 + .12 * fi);
+    a.xz = rot(a.xz, -an); a.xy = rot(a.xy, .32 + .05 * fi);
+    d = min(d, stag(a / s, fi * 1.37, 6) * s);
+  }
+  return d;
+}
+// ── Brain coral: a low dome, one meandering ridge folded across it.
+float brainV(vec3 q){ vec3 w = q * 13. + .9 * sin(q.yzx * 5.1 + 1.3);                 // a gyroid, cut by the dome: one ridge, endlessly folded
+  return sin(w.x) * cos(w.y) + sin(w.y) * cos(w.z) + sin(w.z) * cos(w.x); }
+float brain(vec3 q){
+  q.y += .25;
+  float d = (length(q * vec3(1., 1.3, 1.)) - 1.45) / 1.3;
+  if (d > .25) return d;
+  return (d + .028 * (1. - smoothstep(0., .55, abs(brainV(q))))) * .5;
+}
+// ── Sea fan: branching in one plane, curved into the current, a net between the twigs.
+float fan0(vec3 p){
+  p.z += .16 * p.x * p.x - .05 * p.y;
+  float d = 1e3, sc = 1.; vec2 q = p.xy;
+  for (int i = 0; i < 7; i++){
+    float L = i == 0 ? .5 : .36;
+    vec2 qq = vec2(q.x, q.y - clamp(q.y, 0., L));
+    d = min(d, length(vec2(length(qq) / sc, p.z)) - .05 / (1. + float(i) * .3));
+    q.y -= L; q.x = abs(q.x); q = rot(q, .4 - .025 * float(i)); q *= 1.13; sc *= 1.13;
+  }
+  // the net: the twigs fuse where they touch, an irregular mesh like a cell wall
+  vec2 m = p.xy;
+  float inside = max(length((m - vec2(0., 1.5)) * vec2(.7, 1.12)) - 1.12, .55 - p.y);
+  float net = inside;
+  if (inside < .06) {
+    vec2 x = m / .15, n = floor(x), f = fract(x); float d1 = 8., d2 = 8.;
+    for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++){
+      vec2 g = vec2(float(i), float(j)), r = g + vec2(hash(n + g), hash(n + g + 19.19)) * .9 + .05 - f; float e = dot(r, r);
+      if (e < d1){ d2 = d1; d1 = e; } else if (e < d2) d2 = e;
+    }
+    net = max(length(vec2((sqrt(d2) - sqrt(d1)) * .5 * .15, p.z)) - .011, inside);
+  }
+  return min(d, net * .8);
+}
+float fan(vec3 q){ q.xz = rot(q.xz, .35); return fan0(q / 1.4) * 1.4; }
+// ── Table coral: a stalk and three tiers of wavy plates, branchlets standing on each.
+float plate(vec3 p, float R, float h, float s){
+  float r = length(p.xz), a = atan(p.z, p.x);
+  float e = R * (1. + .05 * sin(a * 7. + s) + .03 * sin(a * 17. + s * 2.));
+  float y = p.y - h - .12 * r * r / (R * R);
+  float d = max(r - e, abs(y) - .045);
+  vec2 id = floor(p.xz / .17 + .5), c = p.xz - id * .17 - (vec2(hash(id + s), hash(id + s + 4.)) - .5) * .08;
+  float st = max(length(vec2(length(c), y - clamp(y, 0., .05 + .06 * hash(id + s + 8.)))) - .022, r - e + .06);
+  return min(d, st);
+}
+float table(vec3 q){
+  float d = vcap(q, 1.0, .16);
+  d = min(d, plate(q, 1.7, 1.0, 0.));
+  vec3 a = q - vec3(.55, 0., .3); d = min(d, vcap(a - vec3(0., 1., 0.), .55, .09)); d = min(d, plate(a, 1.05, 1.55, 3.));
+  vec3 b = q - vec3(-.35, 0., .5); d = min(d, vcap(b - vec3(0., 1.5, 0.), .5, .07)); d = min(d, plate(b, .62, 2.0, 7.));
+  return d;
+}
+float heroK(float k, vec3 q){ return k < .5 ? colony(q) : k < 1.5 ? brain(q) : k < 2.5 ? fan(q) : table(q); }
+vec3 heroP(float k){ return k < .5 ? H1 : k < 1.5 ? H2 : k < 2.5 ? H3 : H4; }
+
+// ── The reef around them: one colony per cell, kept clear of the path and the heroes.
+// The sand dunes gently either side; the path itself is levelled.
+float floorH(vec2 x){ return smoothstep(PATH, PATH + 2.2, abs(x.x)) * (.22 * sin(x.x * .31 + .4) * sin(x.y * .23) + .1 * sin(x.x * .83 + x.y * .41) + .04 * sin(x.y * 1.7 + x.x * .3) + .08); }
+vec2 reef(vec3 p){
+  if (p.y > 3.) return vec2(p.y - 2.9, -1.);
+  const float C = CELL;
+  vec2 id = floor(p.xz / C + .5), lc = p.xz - id * C, cc = id * C;
+  float border = max(C * .5 - max(abs(lc.x), abs(lc.y)) + .3, .02);
+  float nh = min(min(length(cc - H1.xz), length(cc - H2.xz)), min(length(cc - H3.xz), length(cc - H4.xz)));
+  if (abs(cc.x) < 2. || abs(cc.x) > 16.5 || cc.y < -16. || cc.y > 132. || nh < 3.6) return vec2(border, -1.);
+  float h = hash(id), h2 = hash(id + 3.7), h3 = hash(id + 9.1);
+  vec3 q = vec3(lc.x - (h2 - .5) * .4, p.y, lc.y - (h3 - .5) * .5);
+  float d;
+  if (h < .38) {
+    float R = .45 + .45 * h2;
+    d = (length(q * vec3(1., 1.45, 1.)) - R) / 1.45 + .02 * sin(q.x * 11. + h * 6.) * sin(q.z * 11.);
+  } else if (h < .74) {
+    float s = .48 + .27 * h3;
+    q.xz = rot(q.xz, h * 20.);
+    d = stag(q / s, h * 9., 5) * s;
+  } else {
+    d = 1e3;
+    for (int j = 0; j < 3; j++){
+      float fj = float(j), an = fj * 2.1 + h * 6.;
+      vec3 o = vec3(cos(an), 0., sin(an)) * .3, w = q - o;
+      float hg = 1.2 + 1.1 * hash(id + fj);
+      w.xz -= o.xz * .35 * max(w.y, 0.);
+      w.x -= sin(uTime * .7 + fj + h * 6. + p.z * .2) * .14 * w.y * w.y / hg;
+      d = min(d, (length(vec3(w.x, w.y - clamp(w.y, 0., hg), w.z)) - .05) * .8);
+    }
+  }
+  return d < border ? vec2(d, 1.) : vec2(border, -1.);
+}
+vec2 map(vec3 p){
+  if (uMode > .5) { float d = heroK(uSpec, p); return d < p.y ? vec2(d, 2. + uSpec) : vec2(p.y, 9.); }
+  vec2 r = vec2((p.y - floorH(p.xz)) * .8, 0.);
+  vec2 b = reef(p); if (b.x < r.x) r = b;
+  vec3 q; float bd;
+  q = p - H1; bd = max(length(q.xz) - 2.5, q.y - 3.); if (bd < .25) { float d = colony(q); if (d < r.x) r = vec2(d, 2.); } else if (bd < r.x) r = vec2(bd, -1.);
+  q = p - H2; bd = max(length(q.xz) - 1.7, q.y - 1.2); if (bd < .25) { float d = brain(q); if (d < r.x) r = vec2(d, 3.); } else if (bd < r.x) r = vec2(bd, -1.);
+  q = p - H3; bd = max(length(q.xz) - 2.2, q.y - 3.3); if (bd < .25) { float d = fan(q); if (d < r.x) r = vec2(d, 4.); } else if (bd < r.x) r = vec2(bd, -1.);
+  q = p - H4; bd = max(length(q.xz) - 2.2, q.y - 2.6); if (bd < .25) { float d = table(q); if (d < r.x) r = vec2(d, 5.); } else if (bd < r.x) r = vec2(bd, -1.);
+  return r;
+}
+vec3 nrm(vec3 p){ const vec2 k = vec2(1., -1.); const float h = .0018;
+  return normalize(k.xyy * map(p + k.xyy * h).x + k.yyx * map(p + k.yyx * h).x + k.yxy * map(p + k.yxy * h).x + k.xxx * map(p + k.xxx * h).x); }
+// Bounds (material -1) only steer the march: they never cast a shadow or close in a corner,
+// so the sand between the corals stays clean.
+float shadow(vec3 o, vec3 d, float j){ float s = 1., t = .04 + j * .04;
+  for (int i = 0; i < 26; i++){ vec2 h = map(o + d * t); if (h.y > -.5) s = min(s, 9. * h.x / t); t += clamp(h.x, .03, .5); if (s < .01 || t > 7.) break; }
+  return clamp(s, 0., 1.); }
+float ao(vec3 p, vec3 n){ float o = 0., w = 1.; for (int i = 1; i < 4; i++){ float h = .12 * float(i); vec2 r = map(p + n * h); o += (r.y > -.5 ? h - r.x : 0.) * w; w *= .6; } return clamp(1. - 1.8 * o, 0., 1.); }
+// Caustics: the light the surface throws down, a slow net across everything that faces up.
+float caus(vec2 x, float t){ vec2 p = x * 1.2; float c = 0.;
+  for (int i = 0; i < 3; i++){ float fi = float(i); p += vec2(sin(p.y * 1.7 + t * .5 + fi), cos(p.x * 1.5 - t * .4 + fi * 1.3)) * .45; c += abs(sin(p.x * 2.1) * sin(p.y * 2.3)); }
+  return pow(clamp(1. - c / 3., 0., 1.), 3.); }
+// Distance into the water, set as layers: the fog climbs in steps, like flats on a stage.
+float layered(float f){ float k = f * 5.; return (floor(k) + smoothstep(.3, .7, fract(k))) / 5.; }
+float contour(float k, vec3 q, vec3 n){
+  if (k < .5) return hair(rep(q.y, .15), .15);                                         // growth bands
+  if (k < 1.5) return hair(brainV(q + vec3(0., .25, 0.)), 1.2);                        // the ridge
+  if (k < 2.5) return 0.;                                                               // the fan is its own drawing
+  return hair(rep(length(q.xz), .27), .27) * step(.45, n.y);                           // rings on the plates
+}
+// Which piece a surface point belongs to: 1 for a colony of the reef (with its cell), 2 to 5 for the four corals.
+vec3 pieceOf(vec3 p, float m){
+  if (m < .5 || m > 8.5) return vec3(0.);
+  if (m < 1.5) { vec2 id = floor(p.xz / CELL + .5); return vec3(1., id); }
+  return vec3(m, 0., 0.);
+}
+void main(){
+  bool pick = uPick > .5;
+  vec2 fc = pick ? uMouse : gl_FragCoord.xy, uv = (fc - uRes * .5) / uRes.y;
+  bool spec = uMode > .5;
+  vec3 fw = normalize(uTar - uPos), rt = normalize(cross(fw, vec3(0., 1., 0.))), up = cross(rt, fw);
+  vec3 rd = normalize(fw * 1.55 + rt * uv.x + up * uv.y);
+  float tmax = spec ? 30. : TMAX;
+  float t = .02, m = -1.; vec3 p = uPos;
+  for (int i = 0; i < 150; i++){ p = uPos + rd * t; vec2 h = map(p); if (abs(h.x) < .0007 * t + .0004){ m = h.y; break; } t += h.x * .82; if (t > tmax) break; }
+  // Pointer mode: two pixels, read back by the page. The first names the piece under the
+  // pointer, the second carries its distance in sixteen bits.
+  if (pick) {
+    vec3 pc = m >= 0. ? pieceOf(p, m) : vec3(0.);
+    float tn = floor(clamp(t / TMAX, 0., 1.) * 65535.), hi = floor(tn / 256.);
+    gl_FragColor = gl_FragCoord.x < 1. ? vec4(pc.x, pc.y + 128., pc.z + 128., 255.) / 255. : vec4(hi, tn - hi * 256., 0., 255.) / 255.;
+    return;
+  }
+  // Everything is worked out as brightness, then set in ink: on a light canvas the ink
+  // marks the shadow, on a dark one it marks the light, so a dark palette never reads as a
+  // negative. The water itself is the page: open, ungrained; distance shows as fading planes.
+  float paper = uDark > .5 ? 0. : 1., water = paper;
+  float lines = 0., hov = 0., bright = water, depth = 1.;
+  if (m >= 0.) {
+    vec3 n = nrm(p);
+    float ndl = dot(n, SUN);
+    float sh = ndl > 0. || m > 8.5 ? shadow(p + n * .012, SUN, hash(fc)) : 0.;
+    // Shadows on the ground are hatched, not stippled: the sand stays clean paper and the
+    // cast shadow reads as a drawn plane, like the shadows on an engraver's plate.
+    float shd = (1. - sh) * (m > 8.5 ? 1. - smoothstep(1., 2.8, length(p.xz)) : 1.);
+    float hatch = hair(rep((p.x + p.z) * .7071, .13), .13) * smoothstep(.35, .7, shd) * .55;
+    if (m > 8.5) {
+      lines = hatch;                                                                    // the specimen's shadow, and nothing else of the ground
+    } else {
+      depth = log(1. + t) / log(1. + tmax);
+      float occ = ao(p, n);
+      float c = spec ? .45 : caus(p.xz + p.y * .4, uTime);
+      float light = max(ndl, 0.) * sh * (.7 + .6 * c) + .32 * (.5 + .5 * n.y) * occ;
+      bright = smoothstep(.04, .68, light);
+      if (m < .5) {
+        // the path: sand raked straight, the lines running to the vanishing point;
+        // either side, the ripples the water leaves
+        float ax = abs(p.x), onPath = 1. - smoothstep(PATH - .15, PATH + .35, ax);
+        float raked = hair(rep(p.x, .3), .3) * (1. - smoothstep(PATH - .5, PATH - .1, ax));
+        float v = p.z * .85 + .9 * sin(p.x * .33 + 1.) + .35 * sin(p.x * 1.05 + p.z * .21);
+        float ripple = hair(rep(v, 1.1), 1.1) * (1. - onPath) * (1. - smoothstep(6., 22., t));
+        lines = max(max(raked * .55, ripple * .6), hatch * (1. - smoothstep(8., 20., t)));
+        bright = paper;                                                                 // no grain on the sand
+      } else {
+        lines = (1. - smoothstep(.0, .2, abs(dot(n, rd)))) * .75;                        // where the form turns away
+        if (m > 1.5) {
+          float k = m - 2.;
+          vec3 q = spec ? p : p - heroP(k);
+          lines = max(lines, contour(k, q, n));
+        }
+        // the piece under the pointer, lit from the point it was touched outward
+        vec3 pc = pieceOf(p, m);
+        if (uHover.w > .001 && abs(pc.x - uHover.x) < .5 && all(lessThan(abs(pc.yz - uHover.yz), vec2(.5))))
+          hov = uHover.w * (1. - smoothstep(uHoverR * .15, uHoverR, distance(p, uHoverP)));
+      }
+      float fog = spec ? 0. : layered(1. - exp(-t * FOGK));
+      bright = mix(bright, water, fog); lines *= 1. - fog; hov *= 1. - fog;
+    }
+  }
+  float dens = uDark > .5 ? .62 * smoothstep(.14, 1., bright) : .8 * smoothstep(.12, 1., 1. - bright);
+  if (m < 0. || m > 8.5) dens = 0.;
+  gl_FragColor = vec4(clamp(lines, 0., 1.), clamp(hov, 0., 1.), clamp(dens, 0., 1.), depth);
+}`;
+
+  const FS2 = `precision highp float;
+uniform sampler2D uTex; uniform vec2 uRes, uOff; uniform float uA, uPx, uLW, uFog, uRaw; uniform vec3 uInk, uAcc;
+const float TMAX = ${TMAX.toFixed(1)}, FOGK = ${FOGK.toFixed(3)};
+// A stipple rather than a screen: an evenly spread threshold (interleaved gradient noise)
+// loosened by a little white noise, so sparse tones scatter like a hand-stippled plate
+// instead of lining up in rows. One bit, in cells of uPx pixels.
+float ign(vec2 a){ return fract(52.9829189 * fract(dot(a, vec2(.06711056, .00583715)))); }
+float hsh(vec2 a){ return fract(sin(dot(a, vec2(12.9898, 78.233))) * 43758.5453); }
+float stipple(vec2 a){ a = floor(a); return fract(ign(a) + .38 * hsh(a)); }
+vec4 tx(vec2 o){ return texture2D(uTex, (gl_FragCoord.xy + o) / uRes); }
+float layered(float f){ float k = f * 5.; return (floor(k) + smoothstep(.3, .7, fract(k))) / 5.; }
+void main(){
+  vec4 c = tx(vec2(0.));
+  float l = tx(vec2(-uLW, 0.)).a, r = tx(vec2(uLW, 0.)).a, d = tx(vec2(0., -uLW)).a, u = tx(vec2(0., uLW)).a;
+  float near = min(min(min(l, r), min(d, u)), c.a);
+  // depth is stored as log(1 + t), so a difference here is a relative step in distance
+  float e = max(abs(l - r), abs(u - d)) * log(1. + TMAX);
+  float edge = smoothstep(.06, .14, e) * step(near, .999);
+  float tn = exp(near * log(1. + TMAX)) - 1.;
+  edge *= 1. - uFog * layered(1. - exp(-tn * FOGK));
+  float dots = step(stipple((gl_FragCoord.xy + uOff) / uPx) + .004, c.b);
+  float ink = max(dots, max(c.r, edge * .85));
+  // The highlight: the piece's own drawing turns to the accent, and a second stipple of
+  // accent fills it, both falling away from where the pointer touched it.
+  float h = c.g;
+  float glow = step(stipple((gl_FragCoord.xy + vec2(37., 11.)) / uPx) + .004, h * .5) * (1. - ink);
+  vec3 col = mix(uInk, uAcc, smoothstep(.05, .6, h));
+  float ai = uA * ink, ag = uA * glow;
+  vec4 o = vec4(col * ai + uAcc * ag, ai + ag);
+  if (uRaw > .5 && o.a > 0.) o.rgb /= o.a;                                   // exports are read back straight
+  gl_FragColor = o;
+}`;
+
+  function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; }
+  const vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS), fs2 = sh(gl.FRAGMENT_SHADER, FS2);
+  if (!vs || !fs || !fs2) { ready(); return; }
+  const prog = f => { const p = gl.createProgram(); gl.attachShader(p, vs); gl.attachShader(p, f); gl.linkProgram(p); return p; };
+  const pr = prog(fs), px = prog(fs2);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  [pr, px].forEach(p => { const l = gl.getAttribLocation(p, 'a'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0); });
+  const U = {}, X = {};
+  ['uRes', 'uMouse', 'uTime', 'uMode', 'uSpec', 'uDark', 'uLine', 'uPick', 'uHoverR', 'uPos', 'uTar', 'uHoverP', 'uHover'].forEach(k => U[k] = gl.getUniformLocation(pr, k));
+  ['uTex', 'uRes', 'uOff', 'uA', 'uPx', 'uLW', 'uFog', 'uRaw', 'uInk', 'uAcc'].forEach(k => X[k] = gl.getUniformLocation(px, k));
+
+  function target(w, h) {
+    const tex = gl.createTexture(), fbo = gl.createFramebuffer();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return { tex, fbo, w, h, free() { gl.deleteTexture(tex); gl.deleteFramebuffer(fbo); } };
+  }
+
+  // ── Palette, read from the page (and re-read whenever it changes) ──
+  const COL = { ink: [0, 0, 0], acc: [0, 0, 0], cvs: [1, 1, 1], dark: 0 };
+  function colors() {
+    const p = document.createElement('i'); p.style.cssText = 'position:absolute;visibility:hidden'; document.body.appendChild(p);
+    const read = v => { p.style.color = v; const c = getComputedStyle(p).color, n = (c.match(/[\d.]+/g) || [0, 0, 0]).slice(0, 3).map(Number); return c.startsWith('color(') ? n : n.map(x => x / 255); };
+    COL.ink = read('var(--ink)'); COL.acc = read('var(--accent)'); COL.cvs = read('var(--canvas)'); p.remove();
+    COL.dark = root.classList.contains('is-dark') ? 1 : 0;
+    play();
+  }
+  const css = c => `rgb(${c.map(v => Math.round(v * 255)).join(',')})`;
+
+  // ── The walk: one view per section, joined by a spline ──
+  // [eye, target]. The eye never leaves the centre of the path (x = 0): the scroll carries
+  // it straight ahead, and only the gaze turns toward the coral at each stop.
+  // The corals stand at H1 to H4 in the shader.
+  const K = [
+    [[0, 2.5, -7], [0, 1.25, 20]],          // the head of the path
+    [[0, 1.6, 4.6], [-2.05, 1.3, 10.4]],    // staghorn, on the left
+    [[0, 1.75, 18.6], [2.25, .35, 24]],     // brain coral, on the right
+    [[0, 1.75, 32], [-1.95, 1.7, 38]],      // sea fan, on the left
+    [[0, 2.2, 46.2], [2.15, 1.05, 52]],     // table coral, on the right
+    [[0, 1.85, 60], [0, 1.3, 92]],          // ahead: the path running on into the water
+  ];
+  // Specimens, alone, for export: [target height, distance]
+  const SPEC = [[1.05, 6.6], [.25, 4.8], [1.4, 8.2], [1.15, 7.2]];
+  const cr = (a, b, c, d, t) => { const t2 = t * t, t3 = t2 * t; return b.map((_, k) => .5 * (2 * b[k] + (c[k] - a[k]) * t + (2 * a[k] - 5 * b[k] + 4 * c[k] - d[k]) * t2 + (3 * b[k] - a[k] - 3 * c[k] + d[k]) * t3)); };
+  const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  function camAt(s) {
+    // each stop holds for a moment either side, so a section reads at rest
+    const n = K.length - 1, i = Math.min(n - 1, Math.max(0, Math.floor(s))), g = smooth(.14, .86, s - i);
+    const P = j => K[Math.min(n, Math.max(0, j))];
+    return [cr(P(i - 1)[0], P(i)[0], P(i + 1)[0], P(i + 2)[0], g), cr(P(i - 1)[1], P(i)[1], P(i + 1)[1], P(i + 2)[1], g)];
+  }
+
+  // ── Resolution: a whole fraction of the screen's pixels, so the grain stays square.
+  // It steps down when frames run long and back up when there is room.
+  const DPR = Math.max(1, devicePixelRatio || 1);
+  let W = 0, H = 0, k = 1, kMin = 1, scale = DPR, main = null;
+  function measure() {
+    W = innerWidth; H = innerHeight;
+    kMin = Math.max(1, Math.ceil(Math.sqrt(W * H * DPR * DPR / 1.7e6)));
+    k = Math.max(k, kMin); scale = DPR / k;
+    cv.width = Math.round(W * scale); cv.height = Math.round(H * scale);
+    dc.width = Math.round(W * DPR); dc.height = Math.round(H * DPR);
+    if (main) main.free(); main = target(cv.width, cv.height);
+    secH = (document.querySelector('.st') || { offsetHeight: H * 1.2 }).offsetHeight;
+  }
+
+  // ── Scroll, followed by the eye with a little weight ──
+  let secH = 1, sTgt = 0, sCam = 0, aimX = 0, aimY = 0, leanX = 0, leanY = 0;
+  const onScroll = () => { sTgt = Math.min(K.length - 1, Math.max(0, scrollY / secH)); play(); };
+  addEventListener('scroll', onScroll, { passive: true });
+  // the pointer: a slight lean of the gaze, and the coral under it
+  let mx = -1, my = -1, pOn = false;
+  if (fine) {
+    addEventListener('pointermove', e => {
+      mx = e.clientX; my = e.clientY;
+      pOn = e.pointerType === 'mouse' && !e.target.closest('.top, .exp, .cap, .idx');
+      if (!reduce) { aimX = mx / W - .5; aimY = my / H - .5; }
+      play();
+    }, { passive: true });
+    document.documentElement.addEventListener('pointerleave', () => { pOn = false; aimX = aimY = 0; play(); });
+  }
+
+  // ── Marine snow: a few hundred motes in the water, drawn with the same eye ──
+  const MOTES = Array.from({ length: 90 }, () => [Math.random() * 20 - 10, Math.random() * 6, Math.random() * 38, .4 + Math.random() * .6]);
+  function project(eye, tar, x, y, z, w, h) {
+    const f = norm([tar[0] - eye[0], tar[1] - eye[1], tar[2] - eye[2]]), r = norm([-f[2], 0, f[0]]);
+    const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+    const d = [x - eye[0], y - eye[1], z - eye[2]], zf = d[0] * f[0] + d[1] * f[1] + d[2] * f[2];
+    if (zf < .3) return null;
+    return [w / 2 + (d[0] * r[0] + d[1] * r[1] + d[2] * r[2]) / zf * 1.55 * h, h / 2 - (d[0] * u[0] + d[1] * u[1] + d[2] * u[2]) / zf * 1.55 * h, zf];
+  }
+  const norm = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+  function motes(ctx, eye, tar, w, h, ink, unit, t) {
+    ctx.clearRect(0, 0, w, h);
+    if (spec >= 0) return;
+    ctx.fillStyle = ink;
+    const z0 = eye[2] - 2, x0 = eye[0] - 10;
+    for (const m of MOTES) {
+      const x = x0 + (((m[0] + 10 + Math.sin(t * .1 + m[2]) * .3 - x0) % 20) + 20) % 20;
+      const y = 1.4 + ((m[1] - t * .04 * m[3]) % 6 + 6) % 6;            // kept off the sand, up in the water
+      const z = z0 + (((m[2] - z0) % 38) + 38) % 38;
+      const q = project(eye, tar, x, y, z, w, h); if (!q) continue;
+      const fog = 1 - Math.exp(-q[2] * FOGK), a = (1 - fog) * .4 * m[3];
+      if (a < .04) continue;
+      const s = Math.max(1, Math.round(unit * (q[2] < 5 ? 2 : 1.5)));
+      ctx.globalAlpha = a; ctx.fillRect(Math.round(q[0]), Math.round(q[1]), s, s);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Drawing ──
+  const t0 = performance.now();
+  let spec = -1, specAt = 0, frozen = reduce ? 0 : null, eyeNow = K[0][0], tarNow = K[0][1];
+  function views(now) {
+    const t = frozen === null ? (now - t0) / 1000 : frozen;
+    let eye, tar;
+    if (spec >= 0) {
+      const a = reduce ? .7 : .7 + (now - specAt) / 1000 * .14, S = SPEC[spec];
+      eye = [-Math.sin(a) * S[1], S[0] + S[1] * .3, -Math.cos(a) * S[1]]; tar = [0, S[0], 0];
+    } else {
+      [eye, tar] = camAt(sCam);
+      if (!reduce) {
+        eye = [eye[0], eye[1] + Math.sin(t * .17) * .05, eye[2]];          // a breath, never a step off the path
+        tar = [tar[0] + leanX, tar[1] + leanY, tar[2]];
+      }
+    }
+    return { t, eye, tar };
+  }
+  function draw(v, out, opt = {}) {
+    const w = out ? out.w : cv.width, h = out ? out.h : cv.height, rt = out ? out.scene : main;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, rt.fbo); gl.viewport(0, 0, w, h);
+    gl.useProgram(pr);
+    gl.uniform2f(U.uRes, w, h); gl.uniform1f(U.uTime, v.t);
+    gl.uniform1f(U.uMode, spec >= 0 ? 1 : 0); gl.uniform1f(U.uSpec, Math.max(0, spec));
+    gl.uniform1f(U.uDark, opt.dark !== undefined ? opt.dark : COL.dark); gl.uniform1f(U.uPick, 0);
+    const hv = out ? 0 : HV.a;                                          // stills never carry the pointer
+    gl.uniform4f(U.uHover, HV.kind, HV.cx, HV.cz, hv); gl.uniform3fv(U.uHoverP, HV.p); gl.uniform1f(U.uHoverR, HV.r * (.45 + .55 * HV.a));
+    gl.uniform1f(U.uLine, Math.max(1, (out ? out.h : H * scale) / (out ? 1000 : H)));
+    gl.uniform3fv(U.uPos, v.eye); gl.uniform3fv(U.uTar, v.tar);
+    if (opt.strips) {                                                    // large exports go in strips, so no single draw runs long
+      gl.enable(gl.SCISSOR_TEST);
+      for (let y = 0; y < h; y += opt.strips) { gl.scissor(0, y, w, Math.min(opt.strips, h - y)); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.flush(); }
+      gl.disable(gl.SCISSOR_TEST);
+    } else gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, out ? out.comp.fbo : null); gl.viewport(0, 0, w, h);
+    gl.useProgram(px);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, rt.tex); gl.uniform1i(X.uTex, 0);
+    // the grain is set in CSS pixels of a 900-pixel-tall view, so a still keeps the screen's texture at any size
+    const hc = out ? h : H, cell = Math.max(2, Math.round(hc / 450));
+    gl.uniform2f(X.uRes, w, h); gl.uniform2f(X.uOff, 0, 0);
+    gl.uniform1f(X.uA, 1); gl.uniform1f(X.uPx, Math.max(1, Math.round(cell * (out ? 1 : scale))));
+    gl.uniform1f(X.uLW, Math.max(1, Math.round(h / 1100))); gl.uniform1f(X.uFog, spec >= 0 ? 0 : 1); gl.uniform1f(X.uRaw, out ? 1 : 0);
+    gl.uniform3fv(X.uInk, opt.ink || COL.ink); gl.uniform3fv(X.uAcc, COL.acc);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  // ── Hover: which coral is under the pointer ──
+  // The scene shader marches the pointer's ray alone into a 2 x 1 target, and the page
+  // reads those 8 bytes straight back. It runs before the frame is drawn, so the read only
+  // waits on the previous frame, which is already done by then.
+  const pickRT = target(2, 1), pb = new Uint8Array(8);
+  const HV = { kind: 0, cx: 0, cz: 0, a: 0, aim: 0, p: [0, 0, 0], r: 1 };
+  const RADIUS = [1, 1.1, 2.1, 1.6, 2.2, 2.2];                           // by piece: reef colony, then the four corals
+  function pick(v) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pickRT.fbo); gl.viewport(0, 0, 2, 1);
+    gl.useProgram(pr);
+    gl.uniform2f(U.uRes, cv.width, cv.height); gl.uniform2f(U.uMouse, mx * scale, cv.height - my * scale);
+    gl.uniform1f(U.uTime, v.t); gl.uniform1f(U.uMode, spec >= 0 ? 1 : 0); gl.uniform1f(U.uSpec, Math.max(0, spec)); gl.uniform1f(U.uPick, 1);
+    gl.uniform3fv(U.uPos, v.eye); gl.uniform3fv(U.uTar, v.tar);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.readPixels(0, 0, 2, 1, gl.RGBA, gl.UNSIGNED_BYTE, pb);
+    gl.uniform1f(U.uPick, 0);
+    if (!pb[0]) return null;
+    // the touched point, rebuilt from the same ray the shader marched
+    const f = norm([v.tar[0] - v.eye[0], v.tar[1] - v.eye[1], v.tar[2] - v.eye[2]]), r = norm([-f[2], 0, f[0]]);
+    const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+    const sx = (mx - W / 2) / H, sy = (H / 2 - my) / H, d = norm([0, 1, 2].map(i => f[i] * 1.55 + r[i] * sx + u[i] * sy));
+    const t = (pb[4] * 256 + pb[5]) / 65535 * TMAX;
+    return { kind: pb[0], cx: pb[1] - 128, cz: pb[2] - 128, p: [0, 1, 2].map(i => v.eye[i] + d[i] * t) };
+  }
+  function hover(v, dt) {
+    const pk = pOn && fine && mx >= 0 ? pick(v) : null;
+    if (pk && pk.kind === HV.kind && pk.cx === HV.cx && pk.cz === HV.cz) {
+      HV.aim = 1;
+      const g = 1 - Math.exp(-dt / 70);                                   // the light glides after the pointer
+      HV.p = HV.p.map((x, i) => x + (pk.p[i] - x) * g);
+    } else if (pk && HV.a < .04) {                                        // a new piece: take it once the last has let go
+      Object.assign(HV, { kind: pk.kind, cx: pk.cx, cz: pk.cz, p: pk.p, r: RADIUS[pk.kind] || 1, aim: 1 });
+    } else HV.aim = 0;
+    // in quickly, out faster
+    HV.a += (HV.aim - HV.a) * (1 - Math.exp(-dt / (HV.aim > HV.a ? 85 : 50)));
+    if (HV.a < .002 && !HV.aim) HV.a = 0;
+  }
+
+  // ── The loop: runs while anything moves, rests when nothing does ──
+  let raf = 0, prevT = 0, ema = 0, slowN = 0, fastN = 0, busy = false, shown = false;
+  const idxLinks = [...document.querySelectorAll('.idx a')], secs = [...document.querySelectorAll('.st')];
+  let current = -1;
+  function frame(now) {
+    raf = 0;
+    const dt = prevT ? Math.min(100, now - prevT) : 16; prevT = now;
+    // the eye follows the scroll with a critically damped lag: weight without overshoot
+    sCam = reduce ? sTgt : sCam + (sTgt - sCam) * (1 - Math.exp(-dt / 1000 * 3.4));
+    if (Math.abs(sTgt - sCam) < 1e-4) sCam = sTgt;
+    leanX += (aimX * .25 - leanX) * (1 - Math.exp(-dt / 1000 * 2.5)); leanY += (-aimY * .15 - leanY) * (1 - Math.exp(-dt / 1000 * 2.5));
+    const r = Math.min(secs.length - 1, Math.round(sCam));
+    if (r !== current) {
+      current = r;
+      secs.forEach((s, i) => s.classList.toggle('is-current', i === r));
+      idxLinks.forEach((a, i) => i === r ? a.setAttribute('aria-current', 'step') : a.removeAttribute('aria-current'));
+    }
+    if (!busy) {
+      const v = views(now); eyeNow = v.eye; tarNow = v.tar;
+      hover(v, dt);
+      draw(v);
+      motes(dx, v.eye, v.tar, dc.width, dc.height, css(COL.ink), DPR, v.t);
+      if (!shown) { shown = true; requestAnimationFrame(() => { stage.classList.add('is-on'); setTimeout(ready, reduce ? 0 : 500); }); }
+    }
+    // resolution follows the machine
+    if (dt > 0 && dt < 100) {
+      ema = ema ? ema * .9 + dt * .1 : dt;
+      if (ema > 24) { fastN = 0; if (++slowN > 24 && k < 4) { k++; measure(); slowN = 0; ema = 0; } }
+      else if (ema < 17.5) { slowN = Math.max(0, slowN - 1); if (++fastN > 300 && k > kMin) { k--; measure(); fastN = 0; } }
+    }
+    const moving = Math.abs(sTgt - sCam) > 1e-4 || Math.abs(aimX * .25 - leanX) > 1e-3 || Math.abs(HV.aim - HV.a) > .002;
+    if (!document.hidden && (!reduce || moving)) raf = requestAnimationFrame(frame);
+  }
+  function play() { if (!raf) raf = requestAnimationFrame(frame); }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { prevT = 0; play(); } });
+  addEventListener('resize', () => { measure(); onScroll(); });
+  new MutationObserver(colors).observe(root, { attributes: true, attributeFilter: ['style', 'class'] });
+  measure(); colors(); onScroll(); sCam = sTgt; play();
+
+  // ── Export ──
+  const FORMATS = { deck: [3840, 2160], page: [2480, 3508], square: [2400, 2400] };
+  const NAMES = ['staghorn', 'brain', 'sea-fan', 'table'], STOPS = ['reef', 'ark', 'orion', 'zenith', 'atlas', 'ahead'];
+  const panel = document.getElementById('export'), btn = document.querySelector('.exp-btn');
+  const go = panel.querySelector('.do'), note = panel.querySelector('.exp__note');
+  const val = n => panel.querySelector(`input[name="${n}"]:checked`).value;
+  function setSpec() {
+    const s = panel.hasAttribute('data-open') ? val('subj') : 'view';
+    const next = s === 'view' ? -1 : +s;
+    if (next !== spec) { spec = next; specAt = performance.now(); root.classList.toggle('specimen', spec >= 0); }
+    const f = FORMATS[val('fmt')]; note.textContent = `${f[0]} by ${f[1]} pixels, PNG${val('bg') === 'none' ? ' with a transparent ground' : ''}.`;
+    play();
+  }
+  function open(on) {
+    on ? panel.setAttribute('data-open', '') : panel.removeAttribute('data-open');
+    panel.inert = !on; btn.setAttribute('aria-expanded', on); setSpec();
+    if (on) panel.querySelector('input:checked').focus({ preventScroll: true }); else if (panel.contains(document.activeElement)) btn.focus({ preventScroll: true });
+  }
+  btn.addEventListener('click', () => open(!panel.hasAttribute('data-open')));
+  panel.addEventListener('change', () => { setSpec(); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && panel.hasAttribute('data-open')) open(false); });
+  addEventListener('pointerdown', e => { if (panel.hasAttribute('data-open') && !panel.contains(e.target) && !btn.contains(e.target)) open(false); });
+
+  panel.querySelector('.reroll').addEventListener('click', () => {
+    const t = window.WozaPalette && WozaPalette.make(); if (!t) return;
+    root.style.setProperty('--canvas', t.canvas); root.style.setProperty('--ink', t.ink); root.style.setProperty('--accent', t.accent);
+    root.style.setProperty('--secondary', t.secondary); root.style.setProperty('--dim', t.dim); root.classList.toggle('is-dark', t.dark);
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', t.canvas);
+  });
+
+  go.addEventListener('click', async () => {
+    const [w, h] = FORMATS[val('fmt')], bg = val('bg') !== 'none', inkSel = val('ink');
+    // black ink marks the shadows on white, white ink marks the light on black; palette ink keeps the page's own logic
+    const ink = inkSel === 'black' ? [0, 0, 0] : inkSel === 'white' ? [1, 1, 1] : COL.ink;
+    const dark = inkSel === 'black' ? 0 : inkSel === 'white' ? 1 : COL.dark;
+    const ground = inkSel === 'black' ? '#FFFFFF' : inkSel === 'white' ? '#000000' : css(COL.cvs);
+    const lim = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), ...gl.getParameter(gl.MAX_VIEWPORT_DIMS));
+    const f = Math.min(1, lim / Math.max(w, h)), ow = Math.round(w * f), oh = Math.round(h * f);
+    go.disabled = true; go.textContent = 'Rendering';
+    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 40)));
+    busy = true;
+    const v = views(performance.now());
+    const out = { w: ow, h: oh, scene: target(ow, oh), comp: target(ow, oh) };
+    try {
+      draw(v, out, { strips: 256, ink, dark });
+      const px8 = new Uint8Array(ow * oh * 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, out.comp.fbo); gl.readPixels(0, 0, ow, oh, gl.RGBA, gl.UNSIGNED_BYTE, px8);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      const img = new ImageData(ow, oh), row = ow * 4;
+      for (let y = 0; y < oh; y++) img.data.set(px8.subarray((oh - 1 - y) * row, (oh - y) * row), y * row);   // GL rows run bottom up
+      const art = document.createElement('canvas'); art.width = ow; art.height = oh; art.getContext('2d').putImageData(img, 0, 0);
+      const c = document.createElement('canvas'); c.width = ow; c.height = oh; const o = c.getContext('2d');
+      if (bg) { o.fillStyle = ground; o.fillRect(0, 0, ow, oh); }
+      o.drawImage(art, 0, 0);
+      if (spec < 0) { const m = document.createElement('canvas'); m.width = ow; m.height = oh; motes(m.getContext('2d'), v.eye, v.tar, ow, oh, css(ink), oh / 900, v.t); o.drawImage(m, 0, 0); }
+      const name = `woza-reef-${spec >= 0 ? NAMES[spec] : STOPS[Math.round(sCam)]}-${val('fmt')}.png`;
+      await new Promise(r => c.toBlob(b => { const a = document.createElement('a'); a.download = name; a.href = URL.createObjectURL(b); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); r(); }, 'image/png'));
+    } finally {
+      out.scene.free(); out.comp.free(); busy = false; go.disabled = false; go.textContent = 'Download'; play();
+    }
+  });
+  window.WozaReef = { get stop() { return Math.round(sCam); }, set specimen(n) { spec = n; play(); } };
+})();
+</script>
+</body>
+</html>
