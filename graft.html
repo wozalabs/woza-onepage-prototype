@@ -1,0 +1,1871 @@
+<!doctype html>
+<html lang="en" class="graft">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Woza Labs — Graft</title>
+<meta name="description" content="Woza is an applied science and engineering company. We develop proprietary technology for the hardest problems where industry meets the physical world.">
+<meta name="theme-color" content="#0B0B0B">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20473%20474%22%3E%3Crect%20width%3D%22473%22%20height%3D%22474%22%20fill%3D%22%23EEE%22/%3E%3Cg%20transform%3D%22translate%280%2C474%29%20scale%280.1%2C-0.1%29%22%3E%3Cpath%20fill%3D%22%23111%22%20d%3D%22M2171%203828%20c6%20-24%2060%20-225%20120%20-448%20l109%20-405%20-78%20-77%20-77%20-77%20-99%2027%0Ac-54%2015%20-103%2034%20-107%2042%20-14%2025%20-240%20882%20-235%20888%208%207%20316%2090%20338%2091%2012%201%2021%0A-12%2029%20-41z%20m1389%20-523%20c0%20-5%20-221%20-230%20-490%20-500%20-270%20-269%20-490%20-493%20-490%0A-496%200%20-4%2081%20-308%20179%20-675%2099%20-368%20178%20-670%20176%20-672%20-6%20-7%20-340%20-92%20-348%0A-89%20-6%202%20-22%2048%20-37%20103%20-15%2054%20-82%20306%20-150%20559%20-68%20253%20-125%20462%20-127%20465%0A-2%202%20-192%20-184%20-421%20-413%20l-417%20-417%20-133%20132%20-132%20133%20417%20417%20c229%20229%20415%0A419%20413%20422%20-3%202%20-252%2070%20-555%20150%20-302%2081%20-557%20150%20-566%20154%20-14%206%20-11%2027%2031%0A182%2045%20166%2049%20175%2071%20172%2013%20-1%20318%20-82%20678%20-178%20l654%20-176%20496%20496%20496%20496%0A127%20-127%20c71%20-70%20128%20-132%20128%20-138z%20m-145%20-1021%20c242%20-65%20444%20-120%20448%20-124%0A7%20-6%20-76%20-346%20-86%20-357%20-3%20-2%20-900%20236%20-903%20240%20-1%201%20-14%2049%20-28%20106%20l-28%20104%0A73%2073%20c41%2041%2076%2074%2079%2074%203%200%20203%20-52%20445%20-116z%22/%3E%3C/g%3E%3C/svg%3E">
+<script>
+/* ─────────────────────────────────────────────────────────────
+   Palette: a new one on every load, verified before first paint.
+
+   Built in OKLCH, clamped to sRGB, then checked against WCAG:
+     ink        on canvas  ≥ 12:1   (body text, AAA with headroom)
+     secondary  on canvas  ≥ 7:1    (every small text step, AAA)
+     dim        on canvas  ≥ 4.5:1  (large display text only, AAA large)
+     accent     on canvas  ≥ 3:1    (non-text marks only: squares, ticks)
+   A candidate that misses any of these is thrown away.
+   ───────────────────────────────────────────────────────────── */
+(() => {
+  const srgb = v => v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+  function oklch(L, C, H) {
+    const h = H * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+    const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+    const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+    return [ 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s].map(srgb);
+  }
+  function toRgb(L, C, H) {
+    let c = C, v = oklch(L, c, H);
+    while (c > 0 && v.some(x => x < -0.0015 || x > 1.0015)) { c -= 0.004; v = oklch(L, c, H); }
+    return v.map(x => Math.max(0, Math.min(255, Math.round(x * 255))));
+  }
+  const lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const lum = p => 0.2126 * lin(p[0]) + 0.7152 * lin(p[1]) + 0.0722 * lin(p[2]);
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const over = (ink, cv, a) => ink.map((v, i) => Math.round(a * v + (1 - a) * cv[i]));
+  const hex = p => '#' + p.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  /* The window-light overlay sits over everything, text included. Light palettes get
+     its shadow (multiply, darkest spot ×0.849); dark palettes get its light (screen,
+     brightest pane +10%). Every ratio is taken on the plain page and under the overlay's
+     strongest spot, and the worse of the two must pass. */
+  const SHADE = 0.849, GLOW = 0.10;
+  // The grain moves any pixel by at most 3% (multiply on light, screen on dark); its
+  // extreme is stacked on the overlay's, so the worst case is checked, not the average.
+  const NOISE = 0.03;
+  const under = (p, dark) => dark ? p.map(v => Math.round(255 - (255 - v) * (1 - GLOW) * (1 - NOISE)))
+                                  : p.map(v => Math.round(v * SHADE * (1 - NOISE)));
+  // The number plane puts up to DIGIT_ALPHA of ink behind any text, so every ratio is also
+  // taken on that darker (light palettes) or lighter (dark palettes) ground.
+  const DIGIT_ALPHA = 0.14;
+  let INK = null;
+  const plain = (a, b, dark) => Math.min(ratio(a, b), ratio(under(a, dark), under(b, dark)));
+  const worst = (a, b, dark) => { const m = plain(a, b, dark); if (!INK) return m; const g = over(INK, b, DIGIT_ALPHA); return Math.min(m, plain(a, g, dark)); };
+  // Smallest opacity of ink over canvas that clears a target (with a margin for rounding).
+  const step = (ink, cv, target, dark) => {
+    for (let a = 0.2; a <= 1.0001; a += 0.01) if (worst(over(ink, cv, a), cv, dark) >= target + 0.05) return Math.ceil(a * 100) / 100;
+    return null;
+  };
+
+  function make() {
+    for (let t = 0; t < 400; t++) {
+      INK = null;
+      const hue = rnd(0, 360), dark = Math.random() < 0.55;
+      const canvas = toRgb(dark ? rnd(0.12, 0.2) : rnd(0.93, 0.975), rnd(0.004, 0.03), hue);
+      const inkH = (hue + rnd(-30, 30) + 360) % 360, inkC = rnd(0.01, 0.06);
+      let ink = null;
+      for (let L = dark ? 0.99 : 0.02; dark ? L > 0.5 : L < 0.55; L += dark ? -0.006 : 0.006) {
+        const c = toRgb(L, inkC, inkH);
+        if (worst(c, canvas, dark) >= 12) ink = c; else break;
+      }
+      if (!ink) continue;
+      INK = ink;
+      if (worst(ink, canvas, dark) < 7.05) { INK = null; continue; }   // body text on the digit ground: AAA
+      const secondary = step(ink, canvas, 7, dark), dim = step(ink, canvas, 4.5, dark);
+      if (secondary === null || dim === null) continue;
+      // Accent: a saturated, clearly different hue, used for marks only (never text).
+      const accH = (hue + rnd(120, 240)) % 360;
+      let accent = null;
+      for (let L = dark ? 0.62 : 0.72; dark ? L < 0.95 : L > 0.3; L += dark ? 0.01 : -0.01) {
+        const c = toRgb(L, 0.19, accH);
+        if (worst(c, canvas, dark) >= 3.2) { accent = c; break; }
+      }
+      if (!accent) { INK = null; continue; }
+      const res = { canvas: hex(canvas), ink: hex(ink), accent: hex(accent), secondary, dim, dark,
+               body: +worst(ink, canvas, dark).toFixed(2),
+               sub: +worst(over(ink, canvas, secondary), canvas, dark).toFixed(2),
+               large: +worst(over(ink, canvas, dim), canvas, dark).toFixed(2),
+               mark: +worst(accent, canvas, dark).toFixed(2) };
+      INK = null; return res;
+    }
+    return null;
+  }
+  // "/#" (the mark's link) opens the landing directly; anything else gets the arrival.
+  const skipArrival = /#$/.test(location.href);
+  document.documentElement.classList.add('js');
+
+  if (!skipArrival) document.documentElement.classList.add('intro');
+  // Desktop lands on the sheet alone; the content opens when a chapter is chosen.
+  const t = make(), r = document.documentElement;
+  if (t) {
+    r.style.setProperty('--canvas', t.canvas);
+    r.classList.toggle('is-dark', t.dark);
+    r.style.setProperty('--ink', t.ink);
+    r.style.setProperty('--accent', t.accent);
+    r.style.setProperty('--secondary', t.secondary);
+    r.style.setProperty('--dim', t.dim);
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', t.canvas);
+    // Favicon: the symbol on this load's canvas, the asterisk in its ink.
+    const ic = document.querySelector('link[rel="icon"]');
+    if (ic) ic.href = 'data:image/svg+xml,' + encodeURIComponent(decodeURIComponent(ic.href.slice(ic.href.indexOf(',') + 1)).replace('#EEE', t.canvas).replace('#111', t.ink));
+    console.info(`palette ${t.canvas} / ${t.ink} / ${t.accent} — body ${t.body}:1, small ${t.sub}:1, large ${t.large}:1, marks ${t.mark}:1`);
+  }
+  window.WozaPalette = { make, under, worst, DIGIT_ALPHA };
+})();
+</script>
+<link rel="preload" href="fonts/NeueMontreal-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Woza Labs — graft
+
+   A grower never starts from seed: the variety is grafted onto a
+   rootstock that is already there. Woza is the rootstock. Every
+   deployment is a graft on it, every venture a tree planted out,
+   the research a nursery bed grown before anyone asks.
+
+   The tree at the left is the menu. Each branch is a deployment,
+   each fruit a venture, each root an engine. The page on the right
+   is read top to bottom; the tree follows, and every plate shows
+   its subject twice, joined along the graft union: above the seam
+   as it looks, below it as Woza models it.
+   The index is the second way through: every subject, A to Z.
+   ───────────────────────────────────────────────────────────── */
+@font-face{
+  font-family:'Neue Montreal';
+  src:url('fonts/NeueMontreal-Regular.woff2') format('woff2');
+  font-weight:400; font-style:normal; font-display:swap;
+}
+:root{
+  --canvas:#0B0B0B;          /* fallback; a verified palette is applied before paint */
+  --ink:#ECECEC;
+  --accent:#F2B535;
+  --secondary:.86;
+  --dim:.62;
+  --ink-2:color-mix(in srgb, var(--ink) calc(var(--secondary) * 100%), var(--canvas));   /* small text: ≥7:1 */
+  --ink-3:color-mix(in srgb, var(--ink) calc(var(--dim) * 100%), var(--canvas));         /* large text only: ≥4.5:1 */
+  --hair:color-mix(in srgb, var(--ink) 22%, transparent);
+  --fill:color-mix(in srgb, var(--ink) 5%, var(--canvas));
+  --plate:color-mix(in srgb, var(--ink) 3%, var(--canvas));
+  --m:clamp(20px,3.2vw,64px);
+  --gut:clamp(12px,1.4vw,24px);
+  --pad:clamp(16px,1.6vw,30px);
+  --head:64px;                                 /* set from the bar's real height on load */
+  --fs:clamp(14px,.98vw,18px);
+  --t-s:clamp(17px,1.35vw,25px);
+  --t-m:clamp(22px,2.1vw,40px);
+  --t-l:clamp(30px,3.4vw,64px);
+  --t-xl:clamp(40px,5.2vw,100px);
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  --ease-drawer:cubic-bezier(.32,.72,0,1);
+  font-family:'Neue Montreal','Helvetica Neue',Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;}
+html{background:var(--canvas);font-synthesis:none;scroll-padding-top:calc(var(--head) + 1px);}
+body{margin:0;color:var(--ink);font-size:var(--fs);line-height:1.38;letter-spacing:0;background:var(--canvas);
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+::selection{background:var(--ink);color:var(--canvas);}
+a{color:inherit;text-decoration:none;}
+:focus-visible{outline:1px solid var(--accent);outline-offset:4px;}
+p,h1,h2,h3,ul,ol,dl,dd,figure{margin:0;padding:0;}
+h1,h2,h3,dt{font-weight:400;}
+ul,ol{list-style:none;}
+img{display:block;max-width:100%;}
+button{font:inherit;color:inherit;}
+
+/* ── Head: a material bar the page passes under ────────────── */
+.top{position:fixed;z-index:20;top:0;left:0;right:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:1em;
+  padding:clamp(14px,1.3vw,24px) var(--m);
+  background:color-mix(in srgb, var(--canvas) 86%, transparent);
+  -webkit-backdrop-filter:blur(18px) saturate(1.15);backdrop-filter:blur(18px) saturate(1.15);}
+.top::after{content:"";position:absolute;left:0;right:0;top:100%;height:28px;pointer-events:none;
+  background:linear-gradient(color-mix(in srgb, var(--canvas) 70%, transparent), transparent);}
+.mark{display:block;width:clamp(104px,8.4vw,160px);color:var(--ink);}
+.mark svg{display:block;width:100%;height:auto;}
+.mark__ast{fill:var(--canvas);}
+.version{display:flex;gap:1em;align-items:baseline;line-height:1;color:var(--ink-2);}
+.version a{color:var(--ink-2);transition:color 200ms ease;}
+.version a:hover{color:var(--ink);}
+.version a[aria-current="page"]{color:var(--ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+.tools{justify-self:end;display:flex;gap:1.6em;align-items:baseline;line-height:1;white-space:nowrap;}
+.tools a{color:var(--ink-2);transition:color 200ms ease;}
+.tools a:hover{color:var(--ink);}
+.ixb{display:inline-flex;gap:.6em;align-items:center;background:none;border:0;padding:.4em 0;margin:-.4em 0;cursor:pointer;line-height:1;
+  transition:transform 160ms var(--ease-out);}
+.ixb:active{transform:scale(.97);}
+.ixb__sq{width:8px;height:8px;background:var(--accent);}
+.ixb__t{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;text-decoration-color:var(--hair);transition:text-decoration-color 200ms ease;}
+.ixb:hover .ixb__t,.ixb[aria-expanded="true"] .ixb__t{text-decoration-color:currentColor;}
+
+/* ── The sheet: the tree on the left, the page on the right ── */
+.sheet{position:relative;z-index:1;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));margin:0 var(--m);padding-top:var(--head);}
+.stem{grid-column:1 / span 4;grid-row:1;border-left:1px solid var(--hair);border-right:1px solid var(--hair);border-top:1px solid var(--hair);}
+.stem__in{position:sticky;top:var(--head);height:calc(100svh - var(--head));display:flex;flex-direction:column;}
+.tree{position:relative;flex:1 1 auto;min-height:0;}
+.tree canvas,.tree svg{position:absolute;inset:0;width:100%;height:100%;display:block;}
+.tree canvas{pointer-events:none;}
+.flow{grid-column:5 / -1;grid-row:1;min-width:0;border-top:1px solid var(--hair);}
+
+/* the label hung on the tree: where you are, always */
+.tag{flex:none;border-top:1px solid var(--hair);padding:var(--pad);display:grid;gap:.35em;min-height:calc(var(--t-s) * 2.5 + 4.2em);align-content:start;}
+.tag__k{display:flex;gap:.6em;align-items:baseline;color:var(--ink-2);}
+.tag__k::before{content:"";width:8px;height:8px;background:var(--accent);flex:none;align-self:center;}
+.tag__v{font-size:var(--t-s);line-height:1.18;letter-spacing:-.006em;text-wrap:balance;}
+.tag__s{color:var(--ink-2);}
+.tag > *{transition:opacity 180ms ease, filter 180ms ease;}
+.tag.swap > *{opacity:0;filter:blur(2px);}
+
+/* the drawing's live parts (the engraving itself is on the canvas) */
+.hp{fill:var(--accent);fill-opacity:0;stroke:var(--ink);stroke-opacity:0;stroke-width:1.1;stroke-linejoin:round;
+  transition:fill-opacity 220ms ease, stroke-opacity 220ms ease;}
+.hp.on{fill-opacity:.26;stroke-opacity:1;}
+.hp.pre{fill-opacity:.16;stroke-opacity:.8;}
+.sap path{fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linecap:round;}
+.fut{opacity:0;transition:opacity 400ms ease;}
+.fut.on{opacity:1;}
+.fut path{fill:none;stroke:var(--ink);stroke-width:1.1;stroke-dasharray:3 4;}
+.fut .u{stroke:var(--accent);stroke-width:1.6;stroke-dasharray:none;}
+.tl{fill:var(--ink-2);font-size:13px;}
+.tl--on{fill:var(--ink);}
+.hit{cursor:pointer;outline:none;}
+.hit path{fill:none;stroke:transparent;stroke-width:26;stroke-linecap:round;pointer-events:stroke;}
+.hit circle{fill:transparent;stroke:none;pointer-events:all;}
+.ttag{opacity:0;transform:scale(.97);transition:opacity 125ms ease-out, transform 125ms var(--ease-out);pointer-events:none;}
+.ttag.on{opacity:1;transform:none;}
+.ttag.instant{transition-duration:0ms;}
+.ttag rect{fill:var(--canvas);stroke:var(--hair);}
+.ttag text{fill:var(--ink);font-size:13px;}
+
+/* ── Cells ─────────────────────────────────────────────────── */
+.sec{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-flow:row;scroll-margin-top:var(--head);}
+.b{grid-column:span var(--s,12);min-width:0;position:relative;
+  padding:var(--pad);border-right:1px solid var(--hair);border-bottom:1px solid var(--hair);
+  display:flex;flex-direction:column;gap:clamp(10px,1.1vw,18px);}
+.end{justify-content:flex-end;}
+.apart{justify-content:space-between;}
+.tall{min-height:clamp(220px,30vh,380px);}
+.hero{min-height:calc(100svh - var(--head) - clamp(230px,30vh,330px));}
+.fill{background:var(--fill);}
+.k{color:var(--ink-2);}
+.lbl{display:flex;gap:.8em;align-items:baseline;color:var(--ink-2);}
+.lbl b{font-weight:400;color:var(--ink);}
+.xl{font-size:var(--t-xl);line-height:.98;letter-spacing:-.03em;text-wrap:balance;}
+.l{font-size:var(--t-l);line-height:1.02;letter-spacing:-.025em;text-wrap:balance;}
+.m{font-size:var(--t-m);line-height:1.06;letter-spacing:-.018em;text-wrap:balance;}
+.s{font-size:var(--t-s);line-height:1.24;letter-spacing:-.006em;text-wrap:pretty;}
+.body{max-width:38em;text-wrap:pretty;}
+.links{display:flex;flex-wrap:wrap;gap:.5em 1.6em;}
+.b.links{flex-direction:row;align-items:flex-end;align-content:flex-end;}
+.b.end.links{justify-content:flex-start;}
+.go{display:inline-block;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.24em;transition:color 200ms ease, transform 160ms var(--ease-out);}
+.go--quiet{color:var(--ink-2);}
+.go:hover{color:var(--ink);}
+.go:active{transform:scale(.97);}
+.sector{cursor:pointer;justify-content:space-between;min-height:clamp(84px,9vw,140px);transition:background-color 200ms ease;}
+@media (hover:hover) and (pointer:fine){ .sector:hover{background:var(--fill);} }
+.sector:active .s{transform:scale(.97);}
+.sector .s{transition:transform 160ms var(--ease-out);transform-origin:left bottom;}
+
+/* ── Plates: one subject, twice, joined at the union ───────── */
+.plate{gap:var(--gut);}
+.plate__fig{position:relative;margin:0;}
+.plate__fig canvas{display:block;width:100%;aspect-ratio:var(--ar,4 / 3);background:var(--plate);touch-action:pan-y;}
+.note{position:absolute;left:10px;font-size:.86em;line-height:1;color:var(--ink-2);background:var(--plate);padding:.3em .45em;pointer-events:none;}
+.note--a{top:10px;}
+.note--b{bottom:10px;}
+.plate__lab{display:grid;gap:.6em;align-content:start;}
+.plate dl{display:grid;gap:.2em;color:var(--ink-2);}
+.plate dl div{display:flex;gap:.6em;}
+.plate dd{color:var(--ink);}
+.plate--wide{flex-direction:row;align-items:stretch;}
+.plate--wide .plate__fig{flex:2 1 0;min-width:0;}
+.plate--wide .plate__lab{flex:1 1 0;min-width:0;align-content:space-between;}
+
+/* small drawings in cells: same hand as the tree */
+.figsvg{display:block;width:100%;height:auto;color:var(--ink);overflow:visible;}
+.figsvg .o{fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;}
+.figsvg .f{fill:var(--canvas);stroke:none;}
+.figsvg .lf{fill:var(--canvas);stroke:currentColor;stroke-width:1;stroke-opacity:.7;}
+.figsvg .rib{fill:none;stroke:currentColor;stroke-width:.8;stroke-opacity:.4;}
+.figsvg .soil{stroke:currentColor;stroke-opacity:.35;stroke-width:1;}
+.figsvg .dot{fill:currentColor;fill-opacity:.45;}
+.figsvg .u{stroke:var(--accent);stroke-width:1.8;fill:none;}
+.figsvg .fr{fill:var(--canvas);stroke:currentColor;stroke-width:1.1;}
+.figsvg .fr--a{stroke:var(--accent);stroke-width:1.8;}
+.figsvg .dash{fill:none;stroke:currentColor;stroke-width:1.1;stroke-dasharray:3 4;}
+.figsvg .faint{opacity:.32;}
+.figsvg text{fill:var(--ink-2);font-size:12px;}
+.fill .figsvg .f,.fill .figsvg .lf,.fill .figsvg .fr{fill:var(--fill);}
+.engine{gap:.8em;}
+.engine .figsvg{margin-bottom:.4em;}
+@media (hover:hover) and (pointer:fine){ .engine{cursor:default;} }
+
+/* ── The record, the people, the growers ───────────────────── */
+.sig{display:grid;grid-template-columns:4.5em minmax(8em,1fr) 2fr;gap:.4em var(--gut);align-items:baseline;transition:background-color 200ms ease;}
+.sig .o{font-size:var(--t-s);line-height:1.15;letter-spacing:-.006em;}
+@media (hover:hover) and (pointer:fine){ a.sig:hover{background:var(--fill);} }
+.face{gap:.2em;}
+.face img{width:100%;height:auto;aspect-ratio:var(--ar,4 / 5);object-fit:cover;object-position:50% 34%;margin-bottom:.4em;
+  background:var(--fill);}
+.face .n{font-size:var(--t-s);line-height:1.15;}
+.tile{display:grid;place-items:center;text-align:center;color:var(--ink-2);font-size:.92em;min-height:clamp(64px,6vw,110px);padding:.6em .3em;transition:color 200ms ease, background-color 200ms ease;}
+@media (hover:hover) and (pointer:fine){ .tile:hover{color:var(--ink);background:var(--fill);} }
+
+/* a target reached from the tree or the index: one quiet ring, once */
+.b.flash::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 1px var(--accent);
+  animation:flash 1400ms var(--ease-out) forwards;}
+@keyframes flash{0%,40%{opacity:1;}100%{opacity:0;}}
+
+/* ── Arrival: each cell drawn in from its top edge, once ───── */
+.js .flow .b{clip-path:inset(0 0 100% 0);transition:clip-path 800ms var(--ease-out) var(--d,0ms);}
+.js .flow .b.in{clip-path:inset(-1px);}
+.js .tree{clip-path:inset(100% 0 0 0);transition:clip-path 1600ms var(--ease-out) 120ms;}
+.js.ready .tree{clip-path:inset(0);}
+.js .top > *{opacity:0;transition:opacity 900ms ease;}
+.js.ready .top > *{opacity:1;}
+@media (prefers-reduced-motion:reduce){
+  .js .flow .b{clip-path:none;opacity:0;transition:opacity 300ms ease;}
+  .js .flow .b.in{opacity:1;}
+  .js .tree{clip-path:none;opacity:0;transition:opacity 400ms ease;}
+  .js.ready .tree{opacity:1;}
+  .tag.swap > *{filter:none;}
+}
+
+/* ── Index: every subject, A to Z ──────────────────────────── */
+.ix{position:fixed;inset:0;z-index:40;pointer-events:none;visibility:hidden;transition:visibility 0s linear 280ms;}
+.ix.open{pointer-events:auto;visibility:visible;transition:visibility 0s;}
+.ix__scrim{position:absolute;inset:0;background:color-mix(in srgb, var(--canvas) 45%, transparent);opacity:0;transition:opacity 240ms ease;}
+.ix.open .ix__scrim{opacity:1;}
+.ix__panel{position:absolute;top:0;right:0;bottom:0;width:calc((100vw - 2 * var(--m)) * 8 / 12 + var(--m));display:flex;flex-direction:column;
+  background:color-mix(in srgb, var(--canvas) 90%, transparent);-webkit-backdrop-filter:blur(24px) saturate(1.1);backdrop-filter:blur(24px) saturate(1.1);
+  border-left:1px solid var(--hair);transform:translateX(100%);transition:transform 260ms var(--ease-out);will-change:transform;}
+.ix.open .ix__panel{transform:none;transition:transform 520ms var(--ease-drawer);}
+.ix.instant,.ix.instant .ix__panel,.ix.instant .ix__scrim{transition:none !important;}
+.ix__head{display:grid;grid-template-columns:1fr auto;gap:var(--gut);align-items:end;padding:clamp(14px,1.3vw,24px) var(--m) var(--pad) var(--pad);border-bottom:1px solid var(--hair);}
+.ix__head .lbl{grid-column:1 / -1;}
+.ix__find{display:block;min-width:0;}
+.ix__find input{width:100%;font:inherit;font-size:var(--t-m);letter-spacing:-.018em;line-height:1.1;color:var(--ink);background:none;border:0;border-bottom:1px solid var(--hair);padding:.15em 0 .25em;border-radius:0;outline:none;
+  transition:border-color 200ms ease;}
+.ix__find input:focus{border-bottom-color:var(--ink);}
+.ix__find input::placeholder{color:var(--ink-3);}
+.ix__find input::-webkit-search-cancel-button,.ix__find input::-webkit-search-decoration{-webkit-appearance:none;appearance:none;}
+.ix__x{background:none;border:0;padding:.4em 0;cursor:pointer;color:var(--ink-2);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;transition:color 200ms ease, transform 160ms var(--ease-out);}
+.ix__x:hover{color:var(--ink);}
+.ix__x:active{transform:scale(.97);}
+.ix__body{flex:1 1 auto;overflow:auto;overscroll-behavior:contain;padding:var(--pad) var(--m) calc(var(--pad) * 2) var(--pad);columns:3 15em;column-gap:var(--gut);}
+.ix__g{break-inside:avoid-column;margin:0 0 1.4em;}
+.ix__g h3{font-size:var(--t-m);line-height:1;letter-spacing:-.018em;color:var(--ink-3);margin-bottom:.35em;}
+.ix__e{break-inside:avoid;padding:.22em 0;line-height:1.3;}
+.ix__e .t{color:var(--ink);}
+.ix__e .r{color:var(--ink-2);}
+.ix__e a{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.2em;text-decoration-color:var(--hair);transition:color 200ms ease, text-decoration-color 200ms ease;}
+.ix__e a:hover{color:var(--ink);text-decoration-color:currentColor;}
+.ix__none{color:var(--ink-2);}
+@media (prefers-reduced-motion:reduce){
+  .ix__panel,.ix.open .ix__panel{transform:none;opacity:0;transition:opacity 200ms ease;}
+  .ix.open .ix__panel{opacity:1;}
+}
+@media (prefers-reduced-transparency:reduce){
+  .top{background:var(--canvas);backdrop-filter:none;-webkit-backdrop-filter:none;}
+  .ix__panel{background:var(--canvas);backdrop-filter:none;-webkit-backdrop-filter:none;}
+}
+
+/* ── Foot ──────────────────────────────────────────────────── */
+.foot{position:relative;z-index:1;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));margin:0 var(--m) clamp(24px,4vh,48px);border-left:1px solid var(--hair);color:var(--ink-2);}
+.foot a{color:var(--ink-2);transition:color 200ms ease;}
+.foot a:hover{color:var(--ink);}
+.foot .b{gap:.4em;}
+.foot .row{display:flex;flex-wrap:wrap;gap:.4em 1.4em;}
+
+@media (max-width:1100px){
+  .tools a{display:none;}
+}
+@media (max-width:900px){
+  :root{--head:96px;}
+  .top{grid-template-columns:1fr auto;}
+  .version{grid-column:1 / -1;grid-row:2;overflow-x:auto;scrollbar-width:none;}
+  .sheet{display:block;}
+  .stem{border-bottom:0;}
+  .stem__in{position:relative;top:auto;height:min(68svh,620px);}
+  .tag{min-height:0;}
+  .flow{border-left:1px solid var(--hair);}
+  .sec,.foot{grid-template-columns:repeat(6,minmax(0,1fr));}
+  .b{grid-column:span 6;}
+  .b.m3{grid-column:span 3;}
+  .b.m2{grid-column:span 2;}
+  .hero{min-height:0;padding-top:clamp(40px,10vw,80px);}
+  .tall{min-height:0;}
+  .plate--wide{flex-direction:column;}
+  .sig{grid-template-columns:3.6em 1fr;}
+  .sig .o{grid-column:1 / -1;}
+  .ix__panel{width:100%;}
+  .ix__head{padding-right:var(--pad);}
+  .ix__body{padding-right:var(--pad);}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="#top" aria-label="Woza Labs, back to the top"><svg viewBox="0 0 3584 537" fill="currentColor" aria-hidden="true"><g transform="translate(0,537) scale(0.1,-0.1)"><path d="M35012 5350 c-228 -61 -407 -244 -467 -475 -19 -76 -19 -231 0 -314
+25 -105 89 -216 176 -302 62 -63 93 -85 170 -122 52 -25 118 -50 147 -56 76
+-16 238 -14 307 4 195 50 381 214 449 398 50 132 56 270 20 412 -51 196 -219
+371 -431 446 -87 31 -273 36 -371 9z m281 -145 c92 -19 160 -58 238 -135 102
+-100 149 -212 149 -349 0 -42 -6 -99 -14 -127 -45 -168 -192 -315 -361 -359
+-310 -80 -625 165 -625 485 0 223 159 424 383 485 68 18 146 18 230 0z"/><path d="M34950 4720 l0 -300 65 0 64 0 3 103 3 102 65 0 65 0 53 -102 53
+-103 73 0 74 0 -60 116 -60 116 35 36 c44 45 57 78 57 142 0 86 -32 137 -105
+171 -34 16 -66 19 -212 19 l-173 0 0 -300z m307 190 c53 -32 57 -114 7 -161
+-22 -21 -35 -24 -102 -24 l-77 0 -3 89 c-2 49 -1 95 2 103 9 22 134 17 173 -7z"/><path d="M22780 3000 l0 -2350 305 0 305 0 0 2350 0 2350 -305 0 -305 0 0
+-2350z"/><path d="M27820 3000 l0 -2350 235 0 235 0 0 230 0 231 46 -58 c231 -291 651
+-443 1226 -443 492 0 827 116 1089 379 300 300 441 737 443 1376 1 351 -32
+597 -114 846 -145 443 -379 696 -760 823 -199 66 -359 89 -630 89 -217 0 -339
+-12 -510 -50 -253 -56 -407 -134 -567 -287 l-83 -79 0 822 0 821 -305 0 -305
+0 0 -2350z m1935 555 c221 -39 365 -109 470 -227 100 -114 191 -352 227 -595
+20 -138 17 -599 -5 -741 -67 -427 -207 -655 -465 -761 -156 -64 -289 -85 -527
+-84 -363 1 -594 72 -756 233 -64 63 -84 92 -127 180 -105 216 -152 472 -152
+825 0 412 67 701 211 905 102 146 320 249 586 279 123 14 429 6 538 -14z"/><rect width="4730" height="4740" fill="currentColor"/><path class="mark__ast" d="M2171 3828 c6 -24 60 -225 120 -448 l109 -405 -78 -77 -77 -77 -99 27
+c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21
+-12 29 -41z m1389 -523 c0 -5 -221 -230 -490 -500 -270 -269 -490 -493 -490
+-496 0 -4 81 -308 179 -675 99 -368 178 -670 176 -672 -6 -7 -340 -92 -348
+-89 -6 2 -22 48 -37 103 -15 54 -82 306 -150 559 -68 253 -125 462 -127 465
+-2 2 -192 -184 -421 -413 l-417 -417 -133 132 -132 133 417 417 c229 229 415
+419 413 422 -3 2 -252 70 -555 150 -302 81 -557 150 -566 154 -14 6 -11 27 31
+182 45 166 49 175 71 172 13 -1 318 -82 678 -178 l654 -176 496 496 496 496
+127 -127 c71 -70 128 -132 128 -138z m-145 -1021 c242 -65 444 -120 448 -124
+7 -6 -76 -346 -86 -357 -3 -2 -900 236 -903 240 -1 1 -14 49 -28 106 l-28 104
+73 73 c41 41 76 74 79 74 3 0 203 -52 445 -116z"/><path d="M12565 4124 c-389 -30 -650 -109 -891 -270 -241 -161 -454 -491 -544
+-844 -96 -374 -99 -886 -8 -1275 130 -561 470 -919 1003 -1058 191 -50 298
+-62 575 -62 280 0 379 11 587 65 508 131 844 470 988 996 97 353 111 798 39
+1194 -61 334 -218 656 -414 850 -214 213 -510 343 -887 389 -93 12 -372 21
+-448 15z m320 -554 c360 -40 561 -168 696 -445 106 -217 139 -374 146 -691 7
+-302 -16 -489 -86 -696 -129 -382 -364 -553 -812 -589 -340 -28 -638 46 -818
+204 -94 82 -186 229 -244 394 -110 307 -112 866 -5 1203 128 400 346 572 793
+624 67 7 245 5 330 -4z"/><path d="M19149 4120 c-462 -26 -793 -147 -1000 -368 -195 -208 -295 -441
+-306 -719 l-6 -133 305 0 305 0 6 104 c10 175 71 315 176 407 25 22 87 60 136
+84 156 78 309 105 592 105 376 0 619 -65 753 -200 68 -70 129 -187 159 -305
+21 -82 45 -264 37 -272 -3 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983 -140
+-549 -128 -819 -334 -916 -699 -29 -107 -26 -418 4 -530 90 -331 332 -559 726
+-684 187 -60 301 -74 581 -75 219 -1 266 2 379 23 414 74 743 248 949 501 l37
+45 0 -267 0 -268 240 0 240 0 0 1043 c0 1068 -4 1226 -40 1440 -70 421 -286
+714 -631 855 -249 102 -693 155 -1110 132z m1161 -1932 c-1 -414 -128 -676
+-420 -867 -193 -127 -428 -191 -700 -191 -300 0 -539 71 -669 198 -93 92 -131
+187 -131 333 0 115 25 184 92 255 87 92 253 159 528 214 153 30 1189 177 1263
+179 l37 1 0 -122z"/><path d="M25369 4120 c-342 -19 -633 -97 -824 -221 -134 -87 -264 -229 -350
+-384 -82 -146 -135 -354 -135 -527 l0 -88 303 0 304 0 6 103 c15 243 109 394
+309 491 161 79 313 106 595 106 278 0 498 -39 638 -113 169 -90 271 -277 305
+-561 6 -54 9 -100 6 -103 -2 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983
+-140 -538 -125 -799 -317 -906 -669 -26 -84 -28 -103 -28 -275 -1 -214 16
+-303 83 -444 50 -106 84 -154 167 -238 154 -156 387 -272 654 -327 310 -65
+722 -50 1020 35 286 83 556 244 707 423 l58 70 3 -265 2 -264 240 0 240 0 0
+1048 c0 641 -4 1101 -11 1187 -25 336 -86 542 -223 755 -154 238 -403 377
+-796 444 -192 33 -523 49 -751 36z m1161 -1928 c0 -390 -116 -652 -373 -841
+-184 -135 -411 -208 -682 -218 -467 -19 -778 125 -850 391 -24 89 -17 231 14
+303 63 143 242 234 596 304 149 29 1186 176 1258 178 l37 1 0 -118z"/><path d="M32865 4120 c-484 -27 -811 -140 -1029 -357 -116 -115 -185 -234
+-227 -388 -18 -66 -22 -108 -23 -240 -1 -186 11 -243 77 -370 74 -143 257
+-302 443 -386 161 -72 611 -186 1299 -329 173 -36 273 -68 365 -116 135 -70
+216 -153 241 -247 17 -64 6 -167 -25 -231 -35 -72 -137 -166 -228 -212 -156
+-79 -350 -108 -665 -101 -245 5 -343 19 -495 71 -119 41 -192 83 -276 161
+-127 117 -186 247 -198 439 l-7 106 -298 0 -299 0 0 -96 c0 -231 66 -459 187
+-641 50 -77 180 -212 262 -272 269 -199 666 -301 1176 -301 573 0 957 121
+1220 385 183 182 266 377 266 620 0 145 -20 239 -77 355 -39 79 -62 110 -133
+181 -138 138 -317 246 -537 322 -115 40 -427 114 -769 182 -258 52 -368 79
+-517 131 -207 72 -325 151 -374 250 -24 49 -26 63 -22 138 6 107 37 175 114
+245 137 126 355 181 709 181 189 0 300 -11 420 -41 319 -81 514 -313 515 -611
+l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
+-1349 365z"/><path d="M5713 4078 c7 -20 1058 -3359 1069 -3395 l9 -33 317 0 317 0 420
+1299 c231 715 421 1296 423 1293 2 -4 198 -587 435 -1297 l432 -1290 329 0
+330 0 553 1710 c304 941 553 1713 553 1718 0 4 -149 6 -332 5 l-332 -3 -395
+-1307 c-218 -719 -398 -1305 -400 -1302 -3 3 -202 591 -442 1307 l-436 1302
+-289 0 -288 0 -291 -885 c-159 -487 -350 -1069 -424 -1293 -73 -225 -137 -405
+-141 -400 -4 4 -165 564 -358 1243 -194 679 -359 1259 -367 1288 l-16 52 -340
+0 c-269 0 -340 -3 -336 -12z"/><path d="M14612 3823 l3 -268 983 -3 c540 -1 982 -4 982 -7 0 -3 -320 -391
+-712 -863 -392 -471 -753 -906 -803 -966 -49 -60 -174 -211 -277 -335 l-188
+-225 0 -253 0 -253 1420 0 1420 0 0 265 0 265 -1036 2 -1036 3 1006 1193 1006
+1193 0 259 0 260 -1385 0 -1385 0 2 -267z"/></g></svg></a>
+  <nav class="version" aria-label="Version"><span>Version</span><a href="index.html">Current</a><a href="walk.html">New</a><a href="nave.html">Nave</a><a href="coral.html">Reef</a><a href="coast.html">Coast</a><a href="shore.html">Shore</a><a href="graft.html" aria-current="page">Graft</a><a href="plain.html">Plain</a><a href="portico.html">Portico</a><a href="atrium.html">Atrium</a></nav>
+  <div class="tools">
+    <a href="#deploy">Deploy</a>
+    <button class="ixb" type="button" aria-expanded="false" aria-controls="ix"><span class="ixb__sq" aria-hidden="true"></span><span class="ixb__t">Index</span></button>
+  </div>
+</header>
+
+<div class="sheet" id="top">
+
+  <!-- The tree: the menu, and the label of where you are -->
+  <aside class="stem" aria-label="The tree: every graft, venture and engine">
+    <div class="stem__in">
+      <div class="tree">
+        <canvas aria-hidden="true"></canvas>
+        <svg role="group" aria-label="Tree"></svg>
+      </div>
+      <div class="tag" aria-live="polite">
+        <p class="tag__k">Rootstock and grafts</p>
+        <p class="tag__v">Nothing starts from zero.</p>
+        <p class="tag__s">One foundation. Every deployment. Every company.</p>
+      </div>
+    </div>
+  </aside>
+
+  <main class="flow">
+
+    <!-- 00 Thesis: the soil line -->
+    <section class="sec" id="thesis" data-tree="thesis" aria-labelledby="h0">
+      <h1 class="b hero end xl" id="h0" style="--s:12">Woza is an applied science and engineering company.</h1>
+      <div class="b fill" style="--s:7">
+        <p class="lbl"><span>00</span><b>The soil line</b></p>
+        <p class="s">We develop proprietary technology for the hardest problems where industry meets the physical world.</p>
+        <p class="s">Industry leaders license it. We build new companies on it.</p>
+      </div>
+      <div class="b apart" style="--s:5">
+        <p class="l">Nothing starts from zero.</p>
+        <p class="links"><a class="go" href="mailto:investors@wozalabs.com?subject=Investor%20deck%20request%20from%20%5Byour%20fund%5D">Request the investor deck</a><a class="go go--quiet" href="#deployed">See it in operation</a></p>
+      </div>
+      <a class="b sector m3" style="--s:3" href="#d-iberdrola" data-sector="energy"><span class="k">Limb</span><span class="s">Energy</span></a>
+      <a class="b sector m3" style="--s:3" href="#d-hazi" data-sector="forests"><span class="k">Limb</span><span class="s">Forests</span></a>
+      <a class="b sector m3" style="--s:3" href="#d-agrology" data-sector="agriculture"><span class="k">Limb</span><span class="s">Agriculture</span></a>
+      <a class="b sector m3" style="--s:3" href="#d-azpilur" data-sector="territory"><span class="k">Limb</span><span class="s">Territory</span></a>
+    </section>
+
+    <!-- 01 Deployed: the grafts -->
+    <section class="sec" id="deployed" data-tree="deployed" aria-labelledby="h1">
+      <div class="b tall apart" style="--s:12">
+        <p class="lbl"><span>01</span><b>The grafts</b></p>
+        <h2 class="l" id="h1">The next industrial capabilities are already here.</h2>
+        <p class="s k">Powered by Woza. Proven in operation.</p>
+      </div>
+
+      <article class="b plate plate--wide" style="--s:12" id="d-iberdrola" data-id="iberdrola">
+        <figure class="plate__fig"><canvas data-scene="iberdrola" style="--ar:16 / 9" role="img" aria-label="Plan drawing of a power line through woodland and fields. Above the seam as it looks, below it as Woza models it."></canvas><span class="note note--a" aria-hidden="true">As it looks</span><span class="note note--b" aria-hidden="true">As Woza models it</span></figure>
+        <div class="plate__lab">
+          <div class="plate__lab">
+            <p class="lbl"><span>Graft 1</span><b>Energy</b></p>
+            <h3 class="m">The grid that sees the storm coming.</h3>
+          </div>
+          <dl><div><dt>Parentage</dt><dd>Woza × <a class="go" href="https://www.iberdrola.com" target="_blank" rel="noopener" aria-label="Iberdrola (opens in a new tab)">Iberdrola</a></dd></div><div><dt>Status</dt><dd>In operation</dd></div></dl>
+        </div>
+      </article>
+
+      <article class="b plate" style="--s:6" id="d-ufd" data-id="ufd">
+        <figure class="plate__fig"><canvas data-scene="ufd" role="img" aria-label="Plan drawing of a distribution network along country roads. Above the seam as it looks, below it as Woza models it."></canvas><span class="note note--a" aria-hidden="true">As it looks</span><span class="note note--b" aria-hidden="true">As Woza models it</span></figure>
+        <div class="plate__lab">
+          <p class="lbl"><span>Graft 2</span><b>Energy</b></p>
+          <h3 class="m">Every asset. Every risk. One network.</h3>
+          <dl><div><dt>Parentage</dt><dd>Woza × <a class="go" href="https://www.ufd.es" target="_blank" rel="noopener" aria-label="UFD, Grupo Naturgy (opens in a new tab)">UFD, Grupo Naturgy</a></dd></div><div><dt>Status</dt><dd>In operation</dd></div></dl>
+        </div>
+      </article>
+
+      <article class="b plate" style="--s:6" id="d-moeve" data-id="moeve">
+        <figure class="plate__fig"><canvas data-scene="moeve" role="img" aria-label="Plan drawing of farm plots and orchards. Above the seam as it looks, below it as Woza models it."></canvas><span class="note note--a" aria-hidden="true">As it looks</span><span class="note note--b" aria-hidden="true">As Woza models it</span></figure>
+        <div class="plate__lab">
+          <p class="lbl"><span>Graft 3</span><b>Energy supply chain</b></p>
+          <h3 class="m">The ground becomes the proof.</h3>
+          <dl><div><dt>Parentage</dt><dd>Woza × <a class="go" href="https://www.moeveglobal.com" target="_blank" rel="noopener" aria-label="Moeve (opens in a new tab)">Moeve</a></dd></div><div><dt>Status</dt><dd>In operation</dd></div></dl>
+        </div>
+      </article>
+
+      <article class="b plate" style="--s:6" id="d-hazi" data-id="hazi">
+        <figure class="plate__fig"><canvas data-scene="hazi" role="img" aria-label="Plan drawing of a forest, crown by crown. Above the seam as it looks, below it as Woza models it."></canvas><span class="note note--a" aria-hidden="true">As it looks</span><span class="note note--b" aria-hidden="true">As Woza models it</span></figure>
+        <div class="plate__lab">
+          <p class="lbl"><span>Graft 4</span><b>Forests</b></p>
+          <h3 class="m">A forest inventory that never stands still.</h3>
+          <dl><div><dt>Parentage</dt><dd>Woza × <a class="go" href="https://www.hazi.eus" target="_blank" rel="noopener" aria-label="HAZI (opens in a new tab)">HAZI</a></dd></div><div><dt>Status</dt><dd>In operation</dd></div></dl>
+        </div>
+      </article>
+
+      <article class="b plate" style="--s:6" id="d-azpilur" data-id="azpilur">
+        <figure class="plate__fig"><canvas data-scene="azpilur" role="img" aria-label="Plan drawing of a territory: a river, a village, fields and woods. Above the seam as it looks, below it as Woza models it."></canvas><span class="note note--a" aria-hidden="true">As it looks</span><span class="note note--b" aria-hidden="true">As Woza models it</span></figure>
+        <div class="plate__lab">
+          <p class="lbl"><span>Graft 5</span><b>Territory</b></p>
+          <h3 class="m">An entire territory. One operating system.</h3>
+          <dl><div><dt>Parentage</dt><dd>Woza × <a class="go" href="https://azpilur.eus/es/" target="_blank" rel="noopener" aria-label="Azpilur (opens in a new tab)">Azpilur</a></dd></div><div><dt>Status</dt><dd>In operation</dd></div></dl>
+        </div>
+      </article>
+
+      <article class="b plate" style="--s:6" id="d-agrology" data-id="agrology">
+        <figure class="plate__fig"><canvas data-scene="agrology" role="img" aria-label="Plan drawing of a cropped field and its hedgerows. Above the seam as it looks, below it as Woza models it."></canvas><span class="note note--a" aria-hidden="true">As it looks</span><span class="note note--b" aria-hidden="true">As Woza models it</span></figure>
+        <div class="plate__lab">
+          <p class="lbl"><span>Graft 6</span><b>Agriculture</b></p>
+          <h3 class="m">The field becomes the forecast.</h3>
+          <dl><div><dt>Parentage</dt><dd>Woza × <a class="go" href="https://www.agrology.com/en/" target="_blank" rel="noopener" aria-label="Agrology (opens in a new tab)">Agrology</a></dd></div><div><dt>Status</dt><dd>In operation</dd></div></dl>
+        </div>
+      </article>
+
+      <article class="b plate" style="--s:6" id="d-sima" data-id="sima">
+        <figure class="plate__fig"><canvas data-scene="sima" role="img" aria-label="Plan drawing of a patchwork of fields. Above the seam as it looks, below it as Woza models it."></canvas><span class="note note--a" aria-hidden="true">As it looks</span><span class="note note--b" aria-hidden="true">As Woza models it</span></figure>
+        <div class="plate__lab">
+          <p class="lbl"><span>Graft 7</span><b>Agriculture</b></p>
+          <h3 class="m">The whole agricultural picture.</h3>
+          <dl><div><dt>Parentage</dt><dd>Woza × <a class="go" href="https://sima.ag/en/" target="_blank" rel="noopener" aria-label="SIMA Earth (opens in a new tab)">SIMA Earth</a></dd></div><div><dt>Status</dt><dd>In operation</dd></div></dl>
+        </div>
+      </article>
+
+      <article class="b plate plate--wide" style="--s:12" id="d-eve" data-id="eve">
+        <figure class="plate__fig"><canvas data-scene="eve" style="--ar:16 / 9" role="img" aria-label="Plan drawing of a city on both banks of its river. Above the seam as it looks, below it as Woza models it."></canvas><span class="note note--a" aria-hidden="true">As it looks</span><span class="note note--b" aria-hidden="true">As Woza models it</span></figure>
+        <div class="plate__lab">
+          <div class="plate__lab">
+            <p class="lbl"><span>Graft 8</span><b>Energy and cities</b></p>
+            <h3 class="m">A city that can steer its emissions.</h3>
+          </div>
+          <dl><div><dt>Parentage</dt><dd>Woza × <a class="go" href="https://www.eve.eus/" target="_blank" rel="noopener" aria-label="EVE, Ente Vasco de la Energía (opens in a new tab)">EVE, Ente Vasco de la Energía</a></dd></div><div><dt>Status</dt><dd>In operation</dd></div></dl>
+        </div>
+      </article>
+
+      <p class="b s" style="--s:8">These capabilities are already in operation. Some of our most advanced work remains under NDA.</p>
+      <p class="b end links" style="--s:4"><a class="go" href="mailto:hello@wozalabs.com?subject=Woza%20technology%20briefing">Request a technology briefing</a></p>
+    </section>
+
+    <!-- 02 Ventures: trees planted out -->
+    <section class="sec" id="ventures" data-tree="ventures" aria-labelledby="h2">
+      <div class="b tall apart" style="--s:12">
+        <p class="lbl"><span>02</span><b>Planted out</b></p>
+        <h2 class="l" id="h2">Our technology becomes new companies.</h2>
+      </div>
+      <div class="b fill" style="--s:7">
+        <p class="m">Born at Woza. Built to stand on their own.</p>
+        <p class="body">Each venture starts with proprietary technology and accumulated research. From that foundation, we build an independent company with a clear industry focus.</p>
+      </div>
+      <div class="b apart" style="--s:5">
+        <p class="l">Nothing starts from zero.</p>
+        <p class="links"><a class="go go--quiet" href="#technology">Explore the technology behind them</a></p>
+      </div>
+      <a class="b apart venture m3" style="--s:4" id="v-predicterra" data-id="predicterra" href="https://predicterra.com" target="_blank" rel="noopener" aria-label="Explore Predicterra (opens in a new tab)">
+        <span class="fig" data-fig="venture" data-seed="11"></span>
+        <span class="lbl"><span>Energy</span></span>
+        <span class="l">Predicterra</span>
+        <span class="s">Intelligence for energy assets, risk and operations.</span>
+      </a>
+      <a class="b apart venture m3" style="--s:4" id="v-hectareo" data-id="hectareo" href="https://hectareo.com" target="_blank" rel="noopener" aria-label="Explore Hectareo (opens in a new tab)">
+        <span class="fig" data-fig="venture" data-seed="23"></span>
+        <span class="lbl"><span>Agriculture</span></span>
+        <span class="l">Hectareo</span>
+        <span class="s">Land, production and risk. One operating system.</span>
+      </a>
+      <a class="b apart venture m3" style="--s:4" id="v-aboveforest" data-id="aboveforest" href="https://aboveforest.com" target="_blank" rel="noopener" aria-label="Explore AboveForest (opens in a new tab)">
+        <span class="fig" data-fig="venture" data-seed="37"></span>
+        <span class="lbl"><span>Forests</span></span>
+        <span class="l">AboveForest</span>
+        <span class="s">An entire forest. A digital twin down to the tree.</span>
+      </a>
+    </section>
+
+    <!-- 03 Technology: the rootstock -->
+    <section class="sec" id="technology" data-tree="technology" aria-labelledby="h3">
+      <div class="b tall apart" style="--s:12">
+        <p class="lbl"><span>03</span><b>The rootstock</b></p>
+        <h2 class="l" id="h3">One foundation. Every deployment. Every company.</h2>
+      </div>
+      <p class="b s fill" style="--s:7">Proprietary software engines for the physical world, built from our own research and owned end to end.</p>
+      <p class="b end m" style="--s:5">Four engines. Working as one.</p>
+      <div class="b engine m3" style="--s:3" id="e-ark" data-id="ark" data-root="0"><span class="fig" data-fig="root" data-root="0"></span><p class="lbl"><span>01</span></p><p class="l">Ark</p><p class="s">Capture the signals.</p><p class="k">Captures the data that describes a physical system.</p></div>
+      <div class="b engine m3" style="--s:3" id="e-orion" data-id="orion" data-root="1"><span class="fig" data-fig="root" data-root="1"></span><p class="lbl"><span>02</span></p><p class="l">Orion</p><p class="s">Connect the pieces.</p><p class="k">Fuses those signals into a unified model of assets, processes and constraints.</p></div>
+      <div class="b engine m3" style="--s:3" id="e-zenith" data-id="zenith" data-root="2"><span class="fig" data-fig="root" data-root="2"></span><p class="lbl"><span>03</span></p><p class="l">Zenith</p><p class="s">Anticipate. Act.</p><p class="k">Turns models into forecasts and forecasts into operational decisions.</p></div>
+      <div class="b engine m3" style="--s:3" id="e-atlas" data-id="atlas" data-root="3"><span class="fig" data-fig="root" data-root="3"></span><p class="lbl"><span>04</span></p><p class="l">Atlas</p><p class="s">See the whole.</p><p class="k">Brings the system into view, from individual assets to the relationships between them.</p></div>
+      <div class="b fill" style="--s:8">
+        <p class="m">Different industries. A shared architecture.</p>
+        <p class="body">A forest, a power network and an agricultural territory have different dynamics. Our foundation gives us a common structure for modelling them, and for extending capabilities from one system to another.</p>
+        <p class="body">Each deployment deepens the foundation. Each new company builds on what is already there.</p>
+      </div>
+      <div class="b apart" style="--s:4">
+        <p class="s">More science. More engineering. More ambitious systems within reach.</p>
+        <div><p class="m">Nothing starts from zero.</p></div>
+        <p class="links"><a class="go go--quiet" href="#deployed">See it in operation</a></p>
+      </div>
+    </section>
+
+    <!-- 04 Research: the nursery -->
+    <section class="sec" id="research" data-tree="research" aria-labelledby="h4">
+      <div class="b tall apart" style="--s:12">
+        <p class="lbl"><span>04</span><b>The nursery</b></p>
+        <h2 class="l" id="h4">Ahead of the ask.</h2>
+      </div>
+      <p class="b m" style="--s:6">Our research agenda. Industry’s next capabilities.</p>
+      <p class="b body fill" style="--s:6">We pursue industrial R&amp;D on our own agenda. We identify the challenges ahead and develop the protocols, scientific models and engineering methods to meet them, before industry asks.</p>
+      <a class="b apart m3" style="--s:3" id="r-forestlayer" data-id="forestlayer" href="https://www.forestlayer.com" target="_blank" rel="noopener"><span class="fig" data-fig="seedling" data-seed="5"></span><span class="lbl"><span>Protocol</span></span><span class="m">ForestLayer</span><span class="s">A common language for forest systems.</span><span class="k">A protocol that gives forest systems a shared structure.</span></a>
+      <a class="b apart m3" style="--s:3" id="r-agrilayer" data-id="agrilayer" href="https://www.agrilayer.com" target="_blank" rel="noopener"><span class="fig" data-fig="seedling" data-seed="9"></span><span class="lbl"><span>Protocol</span></span><span class="m">AgriLayer</span><span class="s">From crop cycle to chain of custody.</span><span class="k">A protocol connecting crop cycles, yield and provenance.</span></a>
+      <div class="b apart m3" style="--s:3" id="r-hectareo-agri" data-id="hectareo-agri"><span class="fig" data-fig="seedling" data-seed="14"></span><span class="lbl"><span>Model, in production</span></span><span class="m">Hectareo-Agri 3.8B</span><span class="s">An agricultural language model. Already in the field.</span><span class="k">Two production deployments in Argentina.</span></div>
+      <div class="b apart m3" style="--s:3" id="r-futured" data-id="futured"><span class="fig" data-fig="seedling" data-seed="21"></span><span class="lbl"><span>Paper, FUTURED, 2023</span></span><span class="m">Spatial digital twins for vegetation risk in power grids</span><span class="k">Modelling vegetation risk across power networks.</span></div>
+      <p class="b m" style="--s:8">When it’s time to build, there is already science to build on.</p>
+      <p class="b end links" style="--s:4"><a class="go" href="mailto:hello@wozalabs.com?subject=Woza%20research%20briefing">Request a research briefing</a><a class="go go--quiet" href="mailto:hello@wozalabs.com?subject=Industrial%20R%26D%20collaboration">Explore an R&amp;D collaboration</a></p>
+    </section>
+
+    <!-- 05 Signals: the record -->
+    <section class="sec" id="signals" data-tree="signals" aria-labelledby="h5">
+      <div class="b tall apart" style="--s:8">
+        <p class="lbl"><span>05</span><b>The record</b></p>
+        <h2 class="l" id="h5">The work is getting noticed.</h2>
+      </div>
+      <p class="b end s k" style="--s:4">In science. In industry. In the world.</p>
+      <a class="b sig" style="--s:12" id="s-edso" data-id="edso" href="https://www.edsoforsmartgrids.eu/success_cases/predicterra/" target="_blank" rel="noopener" aria-label="E.DSO: Read the deployment report (opens in a new tab)"><span class="k">2026</span><span>E.DSO</span><span class="o">Predicterra and UFD, ahead of the storm.</span></a>
+      <a class="b sig" style="--s:12" id="s-esa" data-id="esa" href="https://science.data.nasa.gov/features-events/second-esa-nasa-workshop-ai-foundation-model-earth-observation" target="_blank" rel="noopener" aria-label="ESA–NASA: Explore the workshop (opens in a new tab)"><span class="k">2026</span><span>ESA–NASA</span><span class="o">AI foundation models for Earth observation.</span></a>
+      <a class="b sig" style="--s:12" id="s-latitude" data-id="latitude" href="https://www.latitudemedia.com/news/iberdrola-turns-to-ai-for-power-line-resilience/" target="_blank" rel="noopener" aria-label="Latitude Media: Read the story (opens in a new tab)"><span class="k">2025</span><span>Latitude Media</span><span class="o">The intelligence behind Iberdrola’s grid.</span></a>
+      <a class="b sig" style="--s:12" id="s-google" data-id="google" href="https://earthoutreachonair.withgoogle.com/events/geoforgood25-nyc" target="_blank" rel="noopener" aria-label="Google: Explore the event (opens in a new tab)"><span class="k">2025</span><span>Google</span><span class="o">Our forest digital twin at Geo for Good.</span></a>
+      <a class="b sig" style="--s:12" id="s-euronews" data-id="euronews" href="https://www.euronews.com/2025/08/02/city-streets-tech-towers-and-electric-docks-heres-how-biscay-is-adapting-to-climate-" target="_blank" rel="noopener" aria-label="Euronews: Read the story (opens in a new tab)"><span class="k">2025</span><span>Euronews</span><span class="o">Bizkaia prepares for a changing climate.</span></a>
+      <a class="b sig" style="--s:12" id="s-corriere" data-id="corriere" href="https://www.corriere.it/pianeta2030/25_dicembre_03/bilbao-diventa-laboratorio-europeo-sostenibilita-navi-elettrificate-e" target="_blank" rel="noopener" aria-label="Corriere della Sera: Read the story (opens in a new tab)"><span class="k">2025</span><span>Corriere della Sera</span><span class="o">Bilbao, Europe’s sustainability lab.</span></a>
+      <a class="b sig" style="--s:12" id="s-iberdrola" data-id="iberdrola-2022" href="https://www.iberdrola.com/sala-comunicacion/noticias/detalle/iberdrola-alia-startup-vasca-woza-blindar-lineas-electricas" target="_blank" rel="noopener" aria-label="Iberdrola: Read the announcement (opens in a new tab)"><span class="k">2022</span><span>Iberdrola</span><span class="o">An alliance after the PERSEO challenge win.</span></a>
+      <p class="b links" style="--s:12"><a class="go" href="mailto:hello@wozalabs.com?subject=Woza%20technology%20briefing">Request a technology briefing</a><a class="go go--quiet" href="mailto:investors@wozalabs.com?subject=Investor%20deck%20request%20from%20%5Byour%20fund%5D">Request the investor deck</a></p>
+    </section>
+
+    <!-- 06 Team: the grafters -->
+    <section class="sec" id="team" data-tree="team" aria-labelledby="h6">
+      <div class="b tall apart" style="--s:12">
+        <p class="lbl"><span>06</span><b>The grafters</b></p>
+        <h2 class="l" id="h6">Small by design. Our technology turns every engineer into a team.</h2>
+      </div>
+      <a class="b face m3" style="--s:3" href="https://www.linkedin.com/in/sebastian-priolo/" target="_blank" rel="noopener"><img src="team/sp.webp" alt="Sebastian Priolo, Co-founder &amp; CEO at Woza Labs" width="640" height="640" loading="lazy" decoding="async"><span class="n">Sebastian Priolo</span><span class="k">Co-founder &amp; CEO</span></a>
+      <a class="b face m3" style="--s:3" href="https://www.linkedin.com/in/fernandotadakuma/" target="_blank" rel="noopener"><img src="team/ft.webp" alt="Fernando Tadakuma, Co-founder &amp; CDO at Woza Labs" width="640" height="640" loading="lazy" decoding="async"><span class="n">Fernando Tadakuma</span><span class="k">Co-founder &amp; CDO</span></a>
+      <a class="b face m3" style="--s:3" href="https://www.linkedin.com/in/federico-hasicic-69750761/" target="_blank" rel="noopener"><img src="team/fh.webp" alt="Federico Hasicic, Chief Remote Sensing Officer at Woza Labs" width="640" height="640" loading="lazy" decoding="async"><span class="n">Federico Hasicic</span><span class="k">CRSO</span></a>
+      <a class="b face m3" style="--s:3" href="https://www.linkedin.com/in/pablo-grotto-238b04ba/" target="_blank" rel="noopener"><img src="team/pg.webp" alt="Pablo Grotto, CTO at Woza Labs" width="640" height="640" loading="lazy" decoding="async"><span class="n">Pablo Grotto</span><span class="k">CTO</span></a>
+      <a class="b face m2" style="--s:2;--ar:1 / 1" href="https://www.linkedin.com/in/asier-rosa/" target="_blank" rel="noopener"><img src="team/ar.webp" alt="Asier Rosa, Earth System Engineer at Woza Labs" width="640" height="640" loading="lazy" decoding="async"><span class="n">Asier Rosa</span><span class="k">Earth System Engineer</span></a>
+      <a class="b face m2" style="--s:2;--ar:1 / 1" href="https://www.linkedin.com/in/unaxgomez/" target="_blank" rel="noopener"><img src="team/ug.webp" alt="Unax Gómez, Design Engineer at Woza Labs" width="640" height="640" loading="lazy" decoding="async"><span class="n">Unax Gómez</span><span class="k">Design Engineer</span></a>
+      <a class="b face m2" style="--s:2;--ar:1 / 1" href="https://www.linkedin.com/in/marianacfernandez/" target="_blank" rel="noopener"><img src="team/mf.webp" alt="Mariana Fernández, Earth System Engineer at Woza Labs" width="640" height="640" loading="lazy" decoding="async"><span class="n">Mariana Fernández</span><span class="k">Earth System Engineer</span></a>
+      <a class="b face m2" style="--s:2;--ar:1 / 1" href="https://www.linkedin.com/in/ane-mugarza-822805231/" target="_blank" rel="noopener"><img src="team/am.webp" alt="Ane Mugarza, Earth System Engineer at Woza Labs" width="640" height="640" loading="lazy" decoding="async"><span class="n">Ane Mugarza</span><span class="k">Earth System Engineer</span></a>
+      <a class="b face m2" style="--s:2;--ar:1 / 1" href="https://www.linkedin.com/in/martin-t-34b18420/" target="_blank" rel="noopener"><img src="team/mt.webp" alt="Martin Tanielian, Earth System Engineer at Woza Labs" width="640" height="640" loading="lazy" decoding="async"><span class="n">Martin Tanielian</span><span class="k">Earth System Engineer</span></a>
+      <a class="b face m2" style="--s:2;--ar:1 / 1" href="https://www.linkedin.com/in/federiconery/" target="_blank" rel="noopener"><img src="team/fn.webp" alt="Federico Nery, Earth System Engineer at Woza Labs" width="640" height="640" loading="lazy" decoding="async"><span class="n">Federico Nery</span><span class="k">Earth System Engineer</span></a>
+      <p class="b m" style="--s:8">Always looking for the few who want to build what comes next.</p>
+      <p class="b end links" style="--s:4"><a class="go" href="mailto:hello@wozalabs.com?subject=Join%20Woza">Join the team</a></p>
+    </section>
+
+    <!-- 07 Company: the growers -->
+    <section class="sec" id="company" data-tree="company" aria-labelledby="h7">
+      <div class="b tall apart" style="--s:12">
+        <p class="lbl"><span>07</span><b>The growers</b></p>
+        <h2 class="l" id="h7">We shape what endures.</h2>
+        <p class="s k">Deployed at national scale. Recognised across industries. Operating in Europe and the Americas.</p>
+      </div>
+      <p class="b k" style="--s:12">A research and engineering company trusted by</p>
+      <a class="b tile m2" style="--s:2" href="https://cloud.google.com/partners" target="_blank" rel="noopener" aria-label="Google Cloud Partner (opens in a new tab)">Google Cloud Partner</a>
+      <a class="b tile m2" style="--s:2" href="https://www.iberdrola.com" target="_blank" rel="noopener" aria-label="Iberdrola (opens in a new tab)">Iberdrola</a>
+      <a class="b tile m2" style="--s:2" href="https://www.moeveglobal.com" target="_blank" rel="noopener" aria-label="Moeve (opens in a new tab)">Moeve</a>
+      <a class="b tile m2" style="--s:2" href="https://www.beaz.bizkaia.eus" target="_blank" rel="noopener" aria-label="Bizkaia, BEAZ (opens in a new tab)">Bizkaia, BEAZ</a>
+      <a class="b tile m2" style="--s:2" href="https://partner.microsoft.com" target="_blank" rel="noopener" aria-label="Microsoft Partner (opens in a new tab)">Microsoft Partner</a>
+      <a class="b tile m2" style="--s:2" href="https://www.hazi.eus" target="_blank" rel="noopener" aria-label="HAZI (opens in a new tab)">HAZI</a>
+      <a class="b tile m2" style="--s:2" href="https://www.icex.es" target="_blank" rel="noopener" aria-label="ICEX (opens in a new tab)">ICEX</a>
+      <a class="b tile m2" style="--s:2" href="https://www.digitalocean.com" target="_blank" rel="noopener" aria-label="DigitalOcean (opens in a new tab)">DigitalOcean</a>
+      <a class="b tile m2" style="--s:2" href="https://www.santanderx.com" target="_blank" rel="noopener" aria-label="Santander X (opens in a new tab)">Santander X</a>
+      <a class="b tile m2" style="--s:2" href="https://bind.spri.eus" target="_blank" rel="noopener" aria-label="BIND (opens in a new tab)">BIND</a>
+      <a class="b tile m2" style="--s:2" href="https://www.gobe.studio" target="_blank" rel="noopener" aria-label="Gobe (opens in a new tab)">Gobe</a>
+      <a class="b tile m2" style="--s:2" href="https://www.ufd.es" target="_blank" rel="noopener" aria-label="UFD, Grupo Naturgy (opens in a new tab)">UFD, Grupo Naturgy</a>
+      <div class="b fill" style="--s:6" id="recognition">
+        <p class="lbl"><span>Recognition</span></p>
+        <p class="s">Iberdrola Perseo, winner</p>
+        <p class="s">Moeve Light Up, selected</p>
+        <p class="s">BIND 4.0, winner</p>
+      </div>
+      <div class="b apart m3" style="--s:3"><p class="k">Bilbao</p><p class="s">BAT, Gran Vía 1</p></div>
+      <div class="b apart m3" style="--s:3"><p class="k">Donostia–San Sebastián</p><p class="s">Parke Mikeletegi 53</p></div>
+      <p class="b links" style="--s:12"><a class="go" href="#deploy">Deploy with us</a><a class="go go--quiet" href="mailto:investors@wozalabs.com?subject=Investor%20deck%20request%20from%20%5Byour%20fund%5D">Request the investor deck</a></p>
+    </section>
+
+    <!-- 08 Deploy: two ways to graft -->
+    <section class="sec" id="deploy" data-tree="deploy" aria-labelledby="h8">
+      <div class="b tall apart" style="--s:12">
+        <p class="lbl"><span>08</span><b>Two ways to graft</b></p>
+        <h2 class="xl" id="h8">Build what your industry will depend on next.</h2>
+      </div>
+      <p class="b s" style="--s:7">We work with leaders who have the ambition to change an industry, the authority to make it happen and the capital to see it through.</p>
+      <p class="b end m" style="--s:5">Two ways to build with Woza.</p>
+      <div class="b apart" style="--s:6" id="w-deploy" data-id="w-deploy">
+        <span class="fig" data-fig="topwork"></span>
+        <p class="lbl"><span>01</span><b>Deploy</b></p>
+        <p class="m">A new capability inside your operation.</p>
+        <p class="body">From applied R&amp;D to engineering, deployment and operation.</p>
+        <p class="k">Top-working: a new variety grafted onto a tree that already stands.</p>
+      </div>
+      <div class="b apart" style="--s:6" id="w-venture" data-id="w-venture">
+        <span class="fig" data-fig="newtree"></span>
+        <p class="lbl"><span>02</span><b>Venture</b></p>
+        <p class="m">A new company built on our technology.</p>
+        <p class="body">Your industry insight and capital. Our proprietary foundations. A business built together.</p>
+        <p class="k">A new tree: your scion on our rootstock.</p>
+      </div>
+      <div class="b fill apart tall" style="--s:12">
+        <p class="l">We choose our work for what it can change.</p>
+        <p class="links"><a class="go" href="mailto:hello@wozalabs.com?subject=Build%20with%20Woza">Build with Woza</a><span class="k">Deep tech for the physical economy</span></p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer class="foot">
+  <div class="b" style="--s:4"><span>Creators of <a href="https://predicterra.com">Predicterra</a>, <a href="https://hectareo.com">Hectareo</a> and <a href="https://aboveforest.com">AboveForest</a>.</span></div>
+  <div class="b" style="--s:4"><span class="row"><a href="mailto:hello@wozalabs.com">hello@wozalabs.com</a><a href="mailto:investors@wozalabs.com">investors@wozalabs.com</a></span><span class="row"><a href="tel:+34965023145">EU +34 965 02 31 45</a><a href="tel:+19296677718">US +1 929 667 7718</a></span></div>
+  <div class="b" style="--s:4"><span class="row"><a href="https://blog.wozalabs.com">Blog</a><a href="https://www.linkedin.com/company/wozalabs/">LinkedIn</a><a href="https://x.com/wozalabs">X</a></span><span class="row"><a href="https://www.wozalabs.com/privacy-policy">Privacy</a><a href="https://www.wozalabs.com/legal-notice">Legal</a></span></div>
+</footer>
+
+<!-- The index: the second way through -->
+<div class="ix" id="ix" role="dialog" aria-modal="true" aria-labelledby="ix-t">
+  <div class="ix__scrim" data-close></div>
+  <div class="ix__panel">
+    <div class="ix__head">
+      <p class="lbl"><b id="ix-t">Index</b><span class="ix__n"></span></p>
+      <label class="ix__find"><span class="lbl" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Find a subject</span><input type="search" placeholder="Find a subject" autocomplete="off" spellcheck="false"></label>
+      <button class="ix__x" type="button" data-close>Close</button>
+    </div>
+    <div class="ix__body"></div>
+  </div>
+</div>
+<script>
+/* ─────────────────────────────────────────────────────────────
+   The tree, the plates, the index.
+
+   Everything is drawn by hand, in code, from one seed per visit:
+   a new tree each load, with the same anatomy. The anatomy comes
+   from the text and nothing else: four limbs for the four fields
+   named on the site, one branch per deployment on its own limb,
+   one fruit per venture, one root per engine, one seedling per
+   piece of research. Which engines feed which graft is not on the
+   site, so the tree does not pretend to know: sap from any root
+   reaches every branch, as "One foundation. Every deployment.
+   Every company." says.
+   ───────────────────────────────────────────────────────────── */
+(() => {
+  'use strict';
+  const root = document.documentElement;
+  root.classList.add('js');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const $ = (s, el = document) => el.querySelector(s), $$ = (s, el = document) => [...el.querySelectorAll(s)];
+  const NS = 'http://www.w3.org/2000/svg';
+  const SEED = (Math.random() * 4294967296) >>> 0;
+  let DPR = Math.min(2, Math.max(1, devicePixelRatio || 1));
+  const D = Math.PI / 180;
+
+  // ── Colour: the palette chosen before paint, read once ──
+  const hexRgb = h => { h = (h || '').trim().replace('#', ''); if (h.length === 3) h = [...h].map(c => c + c).join(''); const n = parseInt(h || '888888', 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+  const mixc = (a, b, t) => a.map((v, i) => Math.round(v * t + b[i] * (1 - t)));
+  const rgb = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+  let K = {};
+  function readColours() {
+    const cs = getComputedStyle(root);
+    const ink = hexRgb(cs.getPropertyValue('--ink')), cv = hexRgb(cs.getPropertyValue('--canvas')), ac = hexRgb(cs.getPropertyValue('--accent'));
+    const pl = mixc(ink, cv, .03);
+    K = { line: rgb(mixc(ink, cv, .8)), soft: rgb(mixc(ink, cv, .56)), faint: rgb(mixc(ink, cv, .34)), dot: rgb(mixc(ink, cv, .62)), acc: rgb(ac), bg: rgb(cv),
+          pLine: rgb(mixc(ink, pl, .8)), pSoft: rgb(mixc(ink, pl, .52)), pFaint: rgb(mixc(ink, pl, .3)), pBg: rgb(pl) };
+  }
+
+  // ── Chance, repeatable ──
+  function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const hash = s => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+  function noise1(r) { const ph = [r() * 6.283, r() * 6.283, r() * 6.283], f = [.09 + r() * .04, .21 + r() * .06, .47 + r() * .1]; return s => (Math.sin(s * f[0] + ph[0]) + .6 * Math.sin(s * f[1] + ph[1]) + .3 * Math.sin(s * f[2] + ph[2])) / 1.9; }
+  function noise2(r, sc) { const ph = Array.from({ length: 4 }, () => r() * 6.283), k = 1 / sc; return (x, y) => (Math.sin(x * k + ph[0]) * Math.cos(y * k * .8 + ph[1]) + .5 * Math.sin((x * .6 - y) * k * 1.7 + ph[2]) + .3 * Math.cos((x + y * .7) * k * 2.9 + ph[3])) / 1.8; }
+
+  // ── The botanical hand: curves, tapers, leaves ──
+  const dir = a => [Math.sin(a), -Math.cos(a)];                         // 0 is up, positive turns right
+  function sampleCurve(p0, a0, len, a1, n = 26) {
+    const d0 = dir(a0), d1 = dir(a1), dm = dir((a0 + a1) / 2);
+    const p3 = [p0[0] + dm[0] * len, p0[1] + dm[1] * len];
+    const p1 = [p0[0] + d0[0] * len * .38, p0[1] + d0[1] * len * .38], p2 = [p3[0] - d1[0] * len * .38, p3[1] - d1[1] * len * .38];
+    const pts = [];
+    for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; pts.push([u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]); }
+    return pts;
+  }
+  const ptAt = (p, t) => { const n = p.pts.length - 1, f = Math.max(0, Math.min(n, t * n)), i = Math.min(n - 1, Math.floor(f)), k = f - i, a = p.pts[i], b = p.pts[i + 1]; return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k]; };
+  const angAt = (p, t) => { const n = p.pts.length - 1, i = Math.max(0, Math.min(n - 1, Math.floor(t * n))), a = p.pts[i], b = p.pts[i + 1]; return Math.atan2(b[0] - a[0], -(b[1] - a[1])); };
+  const wAt = (p, t) => p.w0 + (p.w1 - p.w0) * Math.pow(t, .85);
+  const plen = pts => { let s = 0; for (let i = 1; i < pts.length; i++) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return s; };
+  function outline(p, flare = 0) {
+    const L = [], R = [], n = p.pts.length;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1), q = p.pts[Math.min(n - 1, i + 1)], o = p.pts[Math.max(0, i - 1)], c = p.pts[i];
+      let dx = q[0] - o[0], dy = q[1] - o[1]; const m = Math.hypot(dx, dy) || 1; dx /= m; dy /= m;
+      let w = wAt(p, t) / 2; if (flare) w *= 1 + flare * Math.pow(Math.max(0, 1 - t / .1), 2);
+      L.push([c[0] + dy * w, c[1] - dx * w]); R.push([c[0] - dy * w, c[1] + dx * w]);
+    }
+    p.L = L; p.R = R; p.poly = L.concat(R.slice().reverse()); return p;
+  }
+  function leafGeo(l) {
+    const d = dir(l.a), n = [Math.cos(l.a), Math.sin(l.a)], s = l.s, w = s * .3;
+    const mx = l.x + d[0] * s * .5, my = l.y + d[1] * s * .5;
+    return { tip: [l.x + d[0] * s, l.y + d[1] * s], c1: [mx + n[0] * w, my + n[1] * w], c2: [mx - n[0] * w, my - n[1] * w] };
+  }
+  const f1 = v => Math.round(v * 10) / 10;
+  const dPoly = (pts, close = true) => 'M' + pts.map(p => f1(p[0]) + ' ' + f1(p[1])).join('L') + (close ? 'Z' : '');
+  const dLeaf = l => { const g = leafGeo(l); return `M${f1(l.x)} ${f1(l.y)}Q${f1(g.c1[0])} ${f1(g.c1[1])} ${f1(g.tip[0])} ${f1(g.tip[1])}Q${f1(g.c2[0])} ${f1(g.c2[1])} ${f1(l.x)} ${f1(l.y)}Z`; };
+  const dCircle = (x, y, r) => `M${f1(x - r)} ${f1(y)}a${f1(r)} ${f1(r)} 0 1 0 ${f1(2 * r)} 0a${f1(r)} ${f1(r)} 0 1 0 ${f1(-2 * r)} 0Z`;
+
+  /* A small grower: parts, leaves, unions and fruit, with the moves a
+     grower makes (a branch off a branch, a graft, foliage, a spur). Both
+     the big tree and the small drawings in the cells are made with it. */
+  function grower(r, push = true) {
+    const J = (a, b) => a + (b - a) * r();
+    const T = { parts: [], leaves: [], fruits: [], unions: [], tips: {}, J, r };
+    T.add = (kind, id, p0, a0, len, a1, wa, wb, parent, t, owner, keep = push) => { const p = { kind, id, pts: sampleCurve(p0, a0, len, a1), w0: wa, w1: wb, parent, t, owner: owner === undefined ? id : owner, len }; if (keep) T.parts.push(p); return p; };
+    T.off = (par, t, rel, len, wr, kind, id, owner, bend = .55, toward = 0, keep = push) => { const p0 = ptAt(par, t), a0 = angAt(par, t) + rel, a1 = a0 + (toward - a0) * bend, wa = Math.max(1.5, wAt(par, t) * wr); return T.add(kind, id, p0, a0, len, a1, wa, Math.max(.9, wa * .2), par, t, owner, keep); };
+    T.leafAt = (p, t, side, s, owner, list = T.leaves) => { const q = ptAt(p, t); list.push({ x: q[0], y: q[1], a: angAt(p, t) + side * J(32, 62) * D, s: s * J(.82, 1.12), owner }); };
+    T.foliage = (p, owner, s, from = .45, n = 7, list = T.leaves) => { for (let k = 0; k < n; k++) T.leafAt(p, from + (1 - from) * (k + .5) / n, k % 2 ? 1 : -1, s, owner, list); const q = ptAt(p, 1); list.push({ x: q[0], y: q[1], a: angAt(p, 1) + J(-8, 8) * D, s: s * 1.05, owner }); };
+    T.union = (p, t, owner, extra = 6, list = T.unions) => { const q = ptAt(p, t); list.push({ x: q[0], y: q[1], a: angAt(p, t), len: wAt(p, t) + extra, owner }); };
+    return T;
+  }
+
+
+  // ── What the tree is made of: only what the text names ──
+  const SECTORS = { energy: ['iberdrola', 'ufd', 'moeve', 'eve'], forests: ['hazi'], agriculture: ['agrology', 'sima'], territory: ['azpilur'] };
+  const GRAFTS = ['iberdrola', 'ufd', 'moeve', 'hazi', 'azpilur', 'agrology', 'sima', 'eve'];
+  const FRUITS = ['predicterra', 'hectareo', 'aboveforest'];
+  const ROOTS = ['ark', 'orion', 'zenith', 'atlas'];
+  const NURSERY = ['forestlayer', 'agrilayer', 'hectareo-agri', 'futured'];
+  const TARGET = { iberdrola: 'd-iberdrola', ufd: 'd-ufd', moeve: 'd-moeve', hazi: 'd-hazi', azpilur: 'd-azpilur', agrology: 'd-agrology', sima: 'd-sima', eve: 'd-eve',
+    predicterra: 'v-predicterra', hectareo: 'v-hectareo', aboveforest: 'v-aboveforest', ark: 'e-ark', orion: 'e-orion', zenith: 'e-zenith', atlas: 'e-atlas',
+    forestlayer: 'r-forestlayer', agrilayer: 'r-agrilayer', 'hectareo-agri': 'r-hectareo-agri', futured: 'r-futured', topwork: 'w-deploy', sapling: 'w-venture' };
+  const NAME = { iberdrola: 'Iberdrola', ufd: 'UFD', moeve: 'Moeve', hazi: 'HAZI', azpilur: 'Azpilur', agrology: 'Agrology', sima: 'SIMA Earth', eve: 'EVE',
+    predicterra: 'Predicterra', hectareo: 'Hectareo', aboveforest: 'AboveForest', ark: 'Ark', orion: 'Orion', zenith: 'Zenith', atlas: 'Atlas',
+    forestlayer: 'ForestLayer', agrilayer: 'AgriLayer', 'hectareo-agri': 'Hectareo-Agri 3.8B', futured: 'FUTURED paper', topwork: 'Deploy', sapling: 'Venture' };
+  const ITEM = {
+    iberdrola: ['Graft 1 of 8, energy', 'The grid that sees the storm coming.', 'Woza × Iberdrola'],
+    ufd: ['Graft 2 of 8, energy', 'Every asset. Every risk. One network.', 'Woza × UFD, Grupo Naturgy'],
+    moeve: ['Graft 3 of 8, energy supply chain', 'The ground becomes the proof.', 'Woza × Moeve'],
+    hazi: ['Graft 4 of 8, forests', 'A forest inventory that never stands still.', 'Woza × HAZI'],
+    azpilur: ['Graft 5 of 8, territory', 'An entire territory. One operating system.', 'Woza × Azpilur'],
+    agrology: ['Graft 6 of 8, agriculture', 'The field becomes the forecast.', 'Woza × Agrology'],
+    sima: ['Graft 7 of 8, agriculture', 'The whole agricultural picture.', 'Woza × SIMA Earth'],
+    eve: ['Graft 8 of 8, energy and cities', 'A city that can steer its emissions.', 'Woza × EVE, Ente Vasco de la Energía'],
+    predicterra: ['Planted out, 1 of 3, energy', 'Predicterra', 'Intelligence for energy assets, risk and operations.'],
+    hectareo: ['Planted out, 2 of 3, agriculture', 'Hectareo', 'Land, production and risk. One operating system.'],
+    aboveforest: ['Planted out, 3 of 3, forests', 'AboveForest', 'An entire forest. A digital twin down to the tree.'],
+    ark: ['Root 1 of 4', 'Ark', 'Capture the signals.'], orion: ['Root 2 of 4', 'Orion', 'Connect the pieces.'],
+    zenith: ['Root 3 of 4', 'Zenith', 'Anticipate. Act.'], atlas: ['Root 4 of 4', 'Atlas', 'See the whole.'],
+    forestlayer: ['In the nursery, protocol', 'ForestLayer', 'A common language for forest systems.'],
+    agrilayer: ['In the nursery, protocol', 'AgriLayer', 'From crop cycle to chain of custody.'],
+    'hectareo-agri': ['In the nursery, model in production', 'Hectareo-Agri 3.8B', 'An agricultural language model. Already in the field.'],
+    futured: ['In the nursery, paper', 'Spatial digital twins for vegetation risk in power grids', 'FUTURED, 2023'],
+    'w-deploy': ['Two ways to graft, 1 of 2', 'Deploy: a new capability inside your operation.', 'A new variety on a tree that already stands'],
+    'w-venture': ['Two ways to graft, 2 of 2', 'Venture: a new company built on our technology.', 'Your scion on our rootstock'],
+  };
+  const READ = {
+    thesis: ['Rootstock and grafts', 'Nothing starts from zero.', 'One foundation. Every deployment. Every company.'],
+    deployed: ['The grafts', 'The next industrial capabilities are already here.', 'Eight in operation'],
+    ventures: ['Planted out', 'Our technology becomes new companies.', 'Three companies'],
+    technology: ['The rootstock', 'Four engines. Working as one.', 'Ark, Orion, Zenith, Atlas'],
+    research: ['The nursery', 'Ahead of the ask.', 'Two protocols, a model and a paper'],
+    signals: ['The record', 'The work is getting noticed.', '2022 to 2026'],
+    team: ['The grafters', 'Small by design.', 'Ten people'],
+    company: ['The growers', 'Bilbao and Donostia–San Sebastián', 'Operating in Europe and the Americas'],
+    deploy: ['Two ways to graft', 'Top-work your operation, or plant a new tree.', 'Deploy, Venture'],
+  };
+
+  // ── Growing the tree for a box W × H ──
+  function growTree(W, H, seed) {
+    const r = rng(seed), G = grower(r), J = G.J;
+    const S = Math.min(W * 1.02, H * .64);
+    const soilY = Math.round(H * .79), cx = W * (.5 + J(-.015, .015));
+    const w0 = Math.max(9, Math.min(28, S * .06));
+    const LS = Math.max(8, Math.min(17, S * .036));
+    const T = Object.assign(G, { W, H, soilY, cx, w0, LS, seeds: [], seed, future: { parts: [], leaves: [], unions: [] } });
+    const graft = (par, t, rel, len, id) => {
+      const b = G.off(par, t, rel, len, .5, 'graft', id, id); G.union(b, .16, id); G.foliage(b, id, LS, .4, 9);
+      if (r() < .85) { const tw = G.off(b, J(.42, .62), (r() < .5 ? -1 : 1) * J(38, 55) * D, len * J(.26, .36), .55, 'twig', null, id); G.foliage(tw, id, LS, .3, 3); }
+      return b;
+    };
+    const fruit = (par, t, side, id) => {
+      const sp = G.off(par, t, side * J(62, 92) * D, S * .055, .45, 'spur', null, id, .35, side * 150 * D);
+      const q = ptAt(sp, 1), rad = Math.max(6, Math.min(12, S * .025));
+      G.fruits.push({ x: q[0] + side * rad * .15, y: q[1] + rad * 1.3, r: rad, sx: q[0], sy: q[1], id });
+      G.leafAt(sp, .75, -side, LS * .9, id);
+    };
+    const filler = (par, t, side, len) => { const tw = G.off(par, t, side * J(40, 62) * D, len, .5, 'twig', null, null); G.foliage(tw, null, LS, .3, 4); };
+
+    const trunk = G.add('trunk', 'trunk', [cx, soilY], J(-2.5, 2.5) * D, soilY - H * J(.5, .535), J(-4, 4) * D, w0, w0 * .64, null, 0, null);
+    const tTop = ptAt(trunk, .94);
+    const lead = G.add('leader', 'leader', tTop, angAt(trunk, 1) + J(-3, 3) * D, tTop[1] - H * .07, J(-7, 7) * D, w0 * .62, 1.3, trunk, 1, null);
+    G.union(trunk, .13, 'trunk', 12);
+    const sE = r() < .5 ? 1 : -1;
+    graft(lead, .22, sE * J(54, 64) * D, S * J(.33, .38), 'iberdrola');
+    graft(lead, .41, -sE * J(50, 60) * D, S * J(.3, .35), 'ufd');
+    graft(lead, .59, sE * J(46, 56) * D, S * J(.26, .3), 'moeve');
+    graft(lead, .76, -sE * J(42, 50) * D, S * J(.21, .25), 'eve');
+    fruit(lead, .9, sE, 'predicterra');
+    filler(lead, .95, -sE, S * .1); filler(lead, .5, sE, S * .08);
+    const forests = G.off(trunk, .8, -J(46, 54) * D, S * J(.44, .5), .62, 'limb', 'forests', null, .5);
+    graft(forests, J(.46, .56), J(34, 44) * D, S * J(.26, .3), 'hazi');
+    fruit(forests, .9, -1, 'aboveforest');
+    filler(forests, .28, 1, S * .09); filler(forests, .7, -1, S * .07);
+    const agri = G.off(trunk, .94, J(46, 54) * D, S * J(.44, .5), .62, 'limb', 'agriculture', null, .5);
+    graft(agri, J(.34, .42), -J(34, 44) * D, S * J(.26, .3), 'agrology');
+    graft(agri, J(.64, .72), J(26, 38) * D, S * J(.2, .24), 'sima');
+    fruit(agri, .92, 1, 'hectareo'); filler(agri, .2, 1, S * .08);
+    const terr = G.off(trunk, .56, -J(66, 74) * D, S * J(.34, .4), .55, 'limb', 'territory', null, .45);
+    graft(terr, .8, J(26, 36) * D, S * J(.2, .24), 'azpilur');
+    filler(terr, .42, -1, S * .07);
+    // what has not been grafted yet: a new variety on this tree, and a new tree beside it
+    { const fg = G.off(terr, .38, J(30, 40) * D, S * .15, .5, 'future', 'topwork', 'topwork', .55, 0, false); T.future.parts.push(fg); G.union(fg, .12, 'topwork', 6, T.future.unions); G.foliage(fg, 'topwork', LS, .5, 4, T.future.leaves);
+      const sx = W * .12, sp = G.add('future', 'sapling', [sx, soilY], J(-3, 3) * D, H * .14, J(-6, 6) * D, 4, 1.2, null, 0, 'sapling', false); T.future.parts.push(sp); G.union(sp, .26, 'sapling', 6, T.future.unions);
+      const s1 = G.off(sp, .6, -J(40, 55) * D, H * .05, .55, 'future', null, 'sapling', .5, 0, false), s2 = G.off(sp, .78, J(40, 55) * D, H * .045, .55, 'future', null, 'sapling', .5, 0, false);
+      T.future.parts.push(s1, s2); G.foliage(s1, 'sapling', LS * .8, .5, 2, T.future.leaves); G.foliage(s2, 'sapling', LS * .8, .5, 2, T.future.leaves); G.foliage(sp, 'sapling', LS * .8, .9, 1, T.future.leaves); }
+
+    // Fit the crown inside the box, about the foot of the trunk
+    const crown = T.parts.filter(p => p.kind !== 'root' && p.kind !== 'rootlet');
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+    const grow = (x, y, m) => { x0 = Math.min(x0, x - m); x1 = Math.max(x1, x + m); y0 = Math.min(y0, y - m); };
+    crown.forEach(p => p.pts.forEach(q => grow(q[0], q[1], 2)));
+    G.leaves.forEach(l => { const g = leafGeo(l); grow(g.tip[0], g.tip[1], 2); });
+    G.fruits.forEach(f => grow(f.x, f.y, f.r + 2));
+    T.future.parts.forEach(p => p.pts.forEach(q => grow(q[0], q[1], 2)));
+    const pad = Math.max(14, W * .04);
+    const k = Math.min(1, (W - 2 * pad) / (x1 - x0), (soilY - pad) / (soilY - y0));
+    let sx = 0; const nx0 = cx + (x0 - cx) * k, nx1 = cx + (x1 - cx) * k;
+    if (nx0 < pad) sx = pad - nx0; if (nx1 + sx > W - pad) sx = W - pad - nx1;
+    const map = q => [cx + (q[0] - cx) * k + sx, soilY + (q[1] - soilY) * k];
+    const fit = list => list.forEach(p => { p.pts = p.pts.map(map); p.w0 *= k; p.w1 *= k; p.len *= k; });
+    fit(crown); fit(T.future.parts.filter(p => p.id !== 'sapling' && p.owner !== 'sapling'));
+    const fitL = l => { const q = map([l.x, l.y]); l.x = q[0]; l.y = q[1]; l.s *= k; };
+    G.leaves.forEach(fitL); T.future.leaves.filter(l => l.owner !== 'sapling').forEach(fitL);
+    G.fruits.forEach(f => { const q = map([f.x, f.y]), s = map([f.sx, f.sy]); f.x = q[0]; f.y = q[1]; f.sx = s[0]; f.sy = s[1]; f.r *= k; });
+    const fitU = u => { const q = map([u.x, u.y]); u.x = q[0]; u.y = q[1]; u.len *= k; };
+    G.unions.forEach(fitU); T.future.unions.filter(u => u.owner !== 'sapling').forEach(fitU);
+    T.cx = cx + sx; T.k = k;
+
+    // Roots: one per engine, Ark at the far left to Atlas at the far right
+    const base = [T.cx, soilY], depth = H - soilY, RA = [242, 207, 154, 119];
+    ROOTS.forEach((id, i) => {
+      const a0 = (RA[i] + J(-5, 5)) * D, c = Math.max(.42, Math.abs(Math.cos(a0)));
+      let len = depth * (i === 1 || i === 2 ? J(.62, .72) : J(.5, .6)) / c;
+      len = Math.min(len, (i < 2 ? T.cx - 34 : W - T.cx - 34) / Math.max(.3, Math.abs(Math.sin(a0))) * .92);
+      const p = G.add('root', id, base, a0, len, a0 + (Math.PI - a0) * .3, w0 * k * .44, 1, trunk, 0, id);
+      [.36, .64].forEach((t, j) => G.off(p, t, (j ? -1 : 1) * J(30, 48) * D, len * J(.24, .36), .5, 'rootlet', null, id, .4, Math.PI));
+    });
+    // The nursery: four seedlings lined out on the soil, grown before anyone asks
+    const nx = [.7, .77, .84, .91].map(f => Math.min(W - 18, Math.max(T.cx + 40, W * f)));
+    NURSERY.forEach((id, i) => {
+      const h = Math.max(16, H * J(.032, .045)), st = G.add('seed', id, [nx[i] + J(-3, 3), soilY], J(-6, 6) * D, h, J(-10, 10) * D, 2.2, 1, null, 0, id);
+      G.leafAt(st, .96, -1, LS * .72, id); G.leafAt(st, .96, 1, LS * .72, id); G.leafAt(st, .55, i % 2 ? 1 : -1, LS * .6, id);
+      G.add('seedroot', null, [st.pts[0][0], soilY], Math.PI + J(-12, 12) * D, h * .5, Math.PI, 1.6, .8, null, 0, id);
+    });
+    T.parts.forEach(p => outline(p, p.kind === 'trunk' ? .5 : 0));
+    T.future.parts.forEach(p => outline(p));
+    GRAFTS.concat(FRUITS).forEach(id => { const f = G.fruits.find(q => q.id === id); if (f) { T.tips[id] = [f.x, f.y]; return; } const b = T.parts.find(p => p.kind === 'graft' && p.id === id); if (b) T.tips[id] = ptAt(b, 1); });
+    ROOTS.forEach(id => { T.tips[id] = ptAt(T.parts.find(p => p.id === id), 1); });
+    NURSERY.forEach(id => { T.tips[id] = ptAt(T.parts.find(p => p.id === id), 1); });
+    T.tips.topwork = ptAt(T.future.parts[0], 1); T.tips.sapling = ptAt(T.future.parts[1], 1);
+    // the soil: dense at the line, thinning with depth
+    const sr = rng(seed ^ 0x51ed);
+    const N = Math.round(W * depth * .016);
+    T.soil = Array.from({ length: N }, () => [sr() * W, soilY + 2 + depth * Math.pow(sr(), 1.9)]);
+    return T;
+  }
+
+  // ── The engraving, on the canvas ──
+  const tree = $('.tree'), tcv = $('canvas', tree), tsvg = $('svg', tree), tg = tcv.getContext('2d');
+  let T = null;
+  function polyPath(g, pts) { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); }
+  function drawTree() {
+    const g = tg, W = T.W, H = T.H;
+    g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, W, H);
+    g.fillStyle = K.faint; for (const q of T.soil) g.fillRect(q[0], q[1], 1, 1);
+    g.strokeStyle = K.soft; g.lineWidth = 1; g.beginPath(); g.moveTo(0, T.soilY + .5); g.lineTo(W, T.soilY + .5); g.stroke();
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    const below = T.parts.filter(p => p.kind === 'root' || p.kind === 'rootlet' || p.kind === 'seedroot');
+    const above = T.parts.filter(p => !below.includes(p));
+    // an outline of the union of the shapes: stroke them all, then fill them all
+    for (const [set, col] of [[below, K.soft], [above, K.line]]) {
+      g.strokeStyle = col; g.lineWidth = 2; for (const p of set) { polyPath(g, p.poly); g.stroke(); }
+      g.fillStyle = K.bg; for (const p of set) { polyPath(g, p.poly); g.fill(); }
+    }
+    // stipple on the side away from the light
+    const sr = rng(T.seed ^ 0x7a11);
+    g.fillStyle = K.dot;
+    for (const p of T.parts) {
+      if (p.w0 < 3) continue;
+      const n = p.pts.length, dens = p.kind === 'root' ? .06 : .11;
+      for (let i = 1; i < n; i++) {
+        const c = p.pts[i], rr = p.R[i], a = p.pts[i - 1], seg = Math.hypot(c[0] - a[0], c[1] - a[1]), w = wAt(p, i / (n - 1));
+        const cnt = Math.round(seg * w * dens * (.6 + sr() * .8));
+        for (let k = 0; k < cnt; k++) {
+          const u = 1 - Math.pow(sr(), 2.2), s = sr();
+          const x = a[0] + (c[0] - a[0]) * s + (rr[0] - c[0]) * u * .9, y = a[1] + (c[1] - a[1]) * s + (rr[1] - c[1]) * u * .9;
+          g.fillRect(x - .5, y - .5, 1, 1);
+        }
+      }
+    }
+    // leaves
+    g.lineWidth = .9;
+    for (const l of T.leaves) {
+      const q = leafGeo(l);
+      g.beginPath(); g.moveTo(l.x, l.y); g.quadraticCurveTo(q.c1[0], q.c1[1], q.tip[0], q.tip[1]); g.quadraticCurveTo(q.c2[0], q.c2[1], l.x, l.y);
+      g.fillStyle = K.bg; g.fill(); g.strokeStyle = K.soft; g.stroke();
+      g.beginPath(); g.moveTo(l.x, l.y); g.lineTo(l.x + (q.tip[0] - l.x) * .82, l.y + (q.tip[1] - l.y) * .82); g.strokeStyle = K.faint; g.stroke();
+    }
+    // fruit
+    for (const f of T.fruits) {
+      g.strokeStyle = K.soft; g.lineWidth = 1; g.beginPath(); g.moveTo(f.sx, f.sy); g.lineTo(f.x, f.y - f.r); g.stroke();
+      g.beginPath(); g.arc(f.x, f.y, f.r, 0, Math.PI * 2); g.fillStyle = K.bg; g.fill(); g.strokeStyle = K.line; g.lineWidth = 1.1; g.stroke();
+      g.beginPath(); g.arc(f.x, f.y, f.r * .62, Math.PI * 1.08, Math.PI * 1.42); g.strokeStyle = K.faint; g.stroke();
+      g.fillStyle = K.dot; const fr = rng(hash(f.id) ^ T.seed);
+      for (let k = 0; k < f.r * 4; k++) { const a = Math.PI * (-.15 + .8 * fr()), d = f.r * (.45 + .5 * Math.sqrt(fr())); g.fillRect(f.x + Math.cos(a) * d - .5, f.y + Math.sin(a) * d - .5, 1, 1); }
+    }
+    // the unions, where two plants became one
+    g.strokeStyle = K.acc; g.lineWidth = 1.6; g.lineCap = 'butt';
+    for (const u of T.unions) { const n = [Math.cos(u.a), Math.sin(u.a)], h = u.len / 2; g.beginPath(); g.moveTo(u.x - n[0] * h, u.y - n[1] * h); g.lineTo(u.x + n[0] * h, u.y + n[1] * h); g.stroke(); }
+  }
+
+  // ── The live layer: highlights, sap, labels, the parts you can reach ──
+  const svgEl = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+  let HP = {}, LBL = {}, sapG = null, futG = null, ttag = null, ttagP = null, ttagT = null, ttagR = null;
+  const ownerD = id => {
+    let d = '';
+    for (const p of T.parts) if (p.owner === id && p.kind !== 'trunk') d += dPoly(p.poly);
+    for (const l of T.leaves) if (l.owner === id) d += dLeaf(l);
+    for (const f of T.fruits) if (f.id === id) d += dCircle(f.x, f.y, f.r);
+    return d;
+  };
+  function buildSvg() {
+    const W = T.W, H = T.H;
+    tsvg.setAttribute('viewBox', `0 0 ${W} ${H}`); tsvg.innerHTML = '';
+    sapG = svgEl('g', { class: 'sap', 'aria-hidden': 'true' }, tsvg);
+    const hl = svgEl('g', { 'aria-hidden': 'true' }, tsvg); HP = {};
+    for (const id of GRAFTS.concat(FRUITS, ROOTS, NURSERY)) HP[id] = svgEl('path', { class: 'hp', d: ownerD(id) }, hl);
+    // what is still to come, drawn dashed
+    futG = svgEl('g', { class: 'fut', 'aria-hidden': 'true' }, tsvg);
+    for (const p of T.future.parts) svgEl('path', { d: dPoly(p.poly), 'data-o': p.owner }, futG);
+    for (const l of T.future.leaves) svgEl('path', { d: dLeaf(l), 'data-o': l.owner }, futG);
+    for (const u of T.future.unions) { const n = [Math.cos(u.a), Math.sin(u.a)], h = u.len / 2; svgEl('path', { class: 'u', d: `M${f1(u.x - n[0] * h)} ${f1(u.y - n[1] * h)}L${f1(u.x + n[0] * h)} ${f1(u.y + n[1] * h)}` }, futG); }
+    // words on the drawing: the four roots, and the union every graft shares
+    const lg = svgEl('g', { 'aria-hidden': 'true' }, tsvg); LBL = {};
+    for (const id of ROOTS) { const q = T.tips[id]; const t = svgEl('text', { class: 'tl', x: f1(q[0]), y: f1(Math.min(T.H - 8, q[1] + 17)), 'text-anchor': 'middle' }, lg); t.textContent = NAME[id]; LBL[id] = t; }
+    const u0 = T.unions.find(u => u.owner === 'trunk');
+    if (u0) { const t = svgEl('text', { class: 'tl', x: f1(u0.x - u0.len / 2 - 8), y: f1(u0.y + 4), 'text-anchor': 'end' }, lg); t.textContent = 'graft union'; }
+    // the reachable parts: each a link to its page
+    const hits = svgEl('g', {}, tsvg);
+    const link = (id, label) => { const a = svgEl('a', { class: 'hit', href: '#' + TARGET[id], 'data-id': id, 'aria-label': label }, hits); return a; };
+    GRAFTS.forEach((id, i) => {
+      const a = link(id, `Graft ${i + 1}, ${NAME[id]}: ${ITEM[id][1]}`);
+      for (const p of T.parts) if (p.owner === id && (p.kind === 'graft' || p.kind === 'twig')) svgEl('path', { d: dPoly(p.pts, false) }, a);
+      const q = T.tips[id]; svgEl('circle', { cx: f1(q[0]), cy: f1(q[1]), r: f1(T.LS * 1.7) }, a);
+    });
+    FRUITS.forEach(id => { const f = T.fruits.find(q => q.id === id); const a = link(id, `${NAME[id]}: ${ITEM[id][2]}`); svgEl('circle', { cx: f1(f.x), cy: f1(f.y), r: f1(f.r + 9) }, a); });
+    ROOTS.forEach(id => { const a = link(id, `${NAME[id]}: ${ITEM[id][2]}`); for (const p of T.parts) if (p.owner === id && (p.kind === 'root' || p.kind === 'rootlet')) svgEl('path', { d: dPoly(p.pts, false) }, a); const q = T.tips[id]; svgEl('circle', { cx: f1(q[0]), cy: f1(Math.min(T.H - 12, q[1] + 12)), r: 16 }, a); });
+    NURSERY.forEach(id => { const q = T.tips[id]; const a = link(id, `${NAME[id]}: ${ITEM[id][2]}`); svgEl('circle', { cx: f1(q[0]), cy: f1(q[1] + 6), r: 15 }, a); });
+    // one label, hung from whichever part is under the hand
+    ttagP = svgEl('g', { 'aria-hidden': 'true' }, tsvg); ttag = svgEl('g', { class: 'ttag' }, ttagP); ttagR = svgEl('rect', { rx: 0, height: 22 }, ttag); ttagT = svgEl('text', { y: 15 }, ttag);
+    applyTree();
+  }
+  function showTag(id) {
+    if (!ttag) return;
+    if (!id || !T.tips[id] || ROOTS.includes(id)) { ttag.classList.remove('on'); return; }
+    const was = ttag.classList.contains('on');
+    ttagT.textContent = NAME[id];
+    const tw = ttagT.getComputedTextLength(), w = tw + 14, q = T.tips[id], right = q[0] >= T.cx;
+    let x = right ? q[0] + 12 : q[0] - 12 - w, y = q[1] - 30;
+    x = Math.max(4, Math.min(T.W - w - 4, x)); y = Math.max(4, y);
+    ttagR.setAttribute('width', f1(w)); ttagT.setAttribute('x', 7);
+    ttagP.setAttribute('transform', `translate(${f1(x)} ${f1(y)})`);
+    ttag.style.transformOrigin = `${right ? 0 : f1(w)}px 22px`;
+    ttag.classList.toggle('instant', was);                                // the next label after one is open comes at once
+    ttag.classList.add('on');
+  }
+
+  // ── State: what the page is on, and what the hand is on ──
+  let S = { sec: 'thesis', item: null }, PRE = new Set();
+  function applyTree() {
+    if (!T || !HP.iberdrola) return;
+    const on = new Set();
+    if (S.item && HP[S.item]) on.add(S.item);
+    if (S.sec === 'technology') ROOTS.forEach(id => on.add(id));
+    const pre = new Set(PRE);
+    if (!S.item) {
+      if (S.sec === 'deployed') GRAFTS.forEach(id => pre.add(id));
+      if (S.sec === 'ventures') FRUITS.forEach(id => pre.add(id));
+      if (S.sec === 'research') NURSERY.forEach(id => pre.add(id));
+    }
+    for (const id in HP) { HP[id].classList.toggle('on', on.has(id)); HP[id].classList.toggle('pre', !on.has(id) && pre.has(id)); }
+    for (const id in LBL) LBL[id].classList.toggle('tl--on', on.has(id) || pre.has(id));
+    futG.classList.toggle('on', S.sec === 'deploy');
+    $$('[data-o]', futG).forEach(e => { e.style.strokeOpacity = S.item === 'w-deploy' && e.dataset.o !== 'topwork' || S.item === 'w-venture' && e.dataset.o !== 'sapling' ? .35 : 1; });
+    let tagId = null;
+    if (PRE.size === 1) tagId = [...PRE][0];
+    else if (S.item === 'w-deploy') tagId = 'topwork';
+    else if (S.item === 'w-venture') tagId = 'sapling';
+    else if (S.item && HP[S.item] && !ROOTS.includes(S.item)) tagId = S.item;
+    showTag(tagId);
+  }
+  const tag = $('.tag'), tagK = $('.tag__k'), tagV = $('.tag__v'), tagS = $('.tag__s');
+  let tagTimer = 0, tagNext = null;
+  function setTag(words) {
+    if (tagV.textContent === words[1] && tagK.textContent === words[0] && !tagNext) return;
+    tagNext = words;
+    if (tagTimer) return;
+    tag.classList.add('swap');
+    tagTimer = setTimeout(() => { tagTimer = 0; const w = tagNext; tagNext = null; tagK.textContent = w[0]; tagV.textContent = w[1]; tagS.textContent = w[2]; tag.classList.remove('swap'); }, reduce ? 0 : 160);
+  }
+  function setState(sec, item) {
+    if (sec === S.sec && item === S.item) return;
+    const entering = sec !== S.sec;
+    S = { sec, item };
+    applyTree();
+    setTag(item && ITEM[item] ? ITEM[item] : READ[sec]);
+    if (entering && sec === 'technology') sap(-1);
+  }
+
+  // ── Sap: from a root up through the trunk to every branch ──
+  let sapAt = 0;
+  function sap(from) {
+    if (reduce || !T || !sapG) return;
+    const now = performance.now(); if (now - sapAt < 900) return; sapAt = now;
+    sapG.getAnimations ? sapG.getAnimations({ subtree: true }).forEach(a => a.cancel()) : 0;
+    sapG.innerHTML = ''; sapG.style.opacity = '';
+    const v = .5;                                                          // px per ms
+    const start = new Map(), dur = p => p.len / v;
+    const roots = T.parts.filter(p => p.kind === 'root' && (from < 0 || p.id === ROOTS[from]));
+    let end = 0, rEnd = 0;
+    const run = (pts, t0, d) => { const len = plen(pts), e = svgEl('path', { d: dPoly(pts, false), 'stroke-dasharray': f1(len) + ' ' + f1(len + 4), 'stroke-dashoffset': f1(len) }, sapG); e.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: d, delay: t0, easing: 'linear', fill: 'both' }); end = Math.max(end, t0 + d); };
+    for (const p of roots) { run(p.pts.slice().reverse(), 0, dur(p)); rEnd = Math.max(rEnd, dur(p)); }
+    for (const p of T.parts) {
+      if (!['trunk', 'leader', 'limb', 'graft', 'twig', 'spur'].includes(p.kind)) continue;
+      const t0 = p.kind === 'trunk' ? rEnd : (start.get(p.parent) ?? rEnd) + p.t * dur(p.parent);
+      start.set(p, t0); run(p.pts, t0, dur(p));
+    }
+    sapG.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 700, delay: end + 300, easing: 'ease', fill: 'forwards' });
+  }
+
+  /* ── Plates: a subject in plan, twice ─────────────────────────
+     Each plate is one scene drawn in two hands. Above the union it is
+     drawn as it looks: wobbling boundaries, hatched rows, stippled
+     crowns and their shadows. Below it the same objects, in the same
+     places, are drawn as a model: straight edges, vertices, centres,
+     sample points. The seam rises as the plate rises through the
+     window, and follows the hand where there is one. */
+  function wobble(pts, amp, r, closed) {
+    const out = [], n1 = noise1(r), n2 = noise1(r); let s = 0; const N = closed ? pts.length : pts.length - 1;
+    for (let i = 0; i < N; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]), k = Math.max(1, Math.ceil(L / 5));
+      for (let j = 0; j < k; j++) { const t = j / k; out.push([a[0] + (b[0] - a[0]) * t + n1(s) * amp, a[1] + (b[1] - a[1]) * t + n2(s) * amp]); s += L / k; }
+    }
+    if (!closed) { const b = pts[pts.length - 1]; out.push([b[0] + n1(s) * amp, b[1] + n2(s) * amp]); }
+    return out;
+  }
+  const line = (g, pts, close) => { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); if (close) g.closePath(); };
+  function catmull(cp, seg = 10) {
+    const out = [];
+    for (let i = 0; i < cp.length - 1; i++) {
+      const p0 = cp[Math.max(0, i - 1)], p1 = cp[i], p2 = cp[i + 1], p3 = cp[Math.min(cp.length - 1, i + 2)];
+      for (let j = 0; j < seg; j++) { const t = j / seg, t2 = t * t, t3 = t2 * t;
+        out.push([0, 1].map(k => .5 * (2 * p1[k] + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3))); }
+    }
+    out.push(cp[cp.length - 1]); return out;
+  }
+  function offsetLine(pts, d) {
+    return pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; const dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy) || 1, dd = typeof d === 'function' ? d(i) : d; return [p[0] - dy / m * dd, p[1] + dx / m * dd]; });
+  }
+  function distLine(p, pts) { let m = Infinity; for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], b = pts[i], dx = b[0] - a[0], dy = b[1] - a[1], l = dx * dx + dy * dy, t = l ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l)) : 0; m = Math.min(m, Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dy * t)); } return m; }
+  function inPoly(p, poly) { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+  const centroid = poly => poly.reduce((s, p) => [s[0] + p[0] / poly.length, s[1] + p[1] / poly.length], [0, 0]);
+  const shrink = (poly, d) => { const c = centroid(poly); return poly.map(p => { const dx = p[0] - c[0], dy = p[1] - c[1], m = Math.hypot(dx, dy) || 1; return [p[0] - dx / m * d, p[1] - dy / m * d]; }); };
+  const reach = poly => { const X = poly.map(p => p[0]), Y = poly.map(p => p[1]); return Math.hypot(Math.max(...X) - Math.min(...X), Math.max(...Y) - Math.min(...Y)) / 2 + 2; };
+  const pick = (w, r) => { let s = 0; const t = r() * Object.values(w).reduce((a, b) => a + b, 0); for (const k in w) { s += w[k]; if (t <= s) return k; } return Object.keys(w)[0]; };
+  // a jittered grid of fields, turned to the lie of the land; neighbours share their corners
+  function fields(w, h, nx, ny, jit, r, ang, kinds) {
+    const R = Math.hypot(w, h) * .6, cx = w / 2, cy = h / 2;
+    const cut = n => { const a = [0]; for (let i = 0; i < n; i++) a.push(a[i] + .55 + r() * .9); const s = a[n]; return a.map(v => -R + 2 * R * v / s); };
+    const xs = cut(nx), ys = cut(ny), ca = Math.cos(ang), sa = Math.sin(ang);
+    const V = xs.map(x => ys.map(y => { const jx = x + (r() - .5) * jit, jy = y + (r() - .5) * jit; return [cx + jx * ca - jy * sa, cy + jx * sa + jy * ca]; }));
+    const out = [];
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+      const poly = [V[i][j], V[i + 1][j], V[i + 1][j + 1], V[i][j + 1]];
+      const X = poly.map(p => p[0]), Y = poly.map(p => p[1]);
+      if (Math.max(...X) < -4 || Math.min(...X) > w + 4 || Math.max(...Y) < -4 || Math.min(...Y) > h + 4) continue;
+      out.push({ t: 'parcel', poly, ang: ang + (r() < .5 ? 0 : Math.PI / 2), k: pick(kinds, r), sp: 3.6 + r() * 2.2 });
+    }
+    return out;
+  }
+  function scatter(w, h, rmin, rmax, r, tries, ok, list = []) {
+    const cs = rmax * 2, grid = new Map(), key = (a, b) => a + b * 4096;
+    for (const q of list) { const k = key(Math.floor(q.x / cs), Math.floor(q.y / cs)); (grid.get(k) || grid.set(k, []).get(k)).push(q); }
+    const out = [];
+    for (let n = 0; n < tries; n++) {
+      const x = r() * w, y = r() * h, rr = rmin + r() * (rmax - rmin);
+      if (ok && !ok(x, y, rr)) continue;
+      const gx = Math.floor(x / cs), gy = Math.floor(y / cs); let hit = false;
+      for (let a = -1; a <= 1 && !hit; a++) for (let b = -1; b <= 1 && !hit; b++) { const c = grid.get(key(gx + a, gy + b)); if (c) for (const q of c) if (Math.hypot(q.x - x, q.y - y) < (q.r + rr) * .84) { hit = true; break; } }
+      if (hit) continue;
+      const o = { t: 'crown', x, y, r: rr }; out.push(o); const k = key(gx, gy); (grid.get(k) || grid.set(k, []).get(k)).push(o);
+    }
+    return out;
+  }
+  const along = (pts, step, fn) => { let acc = step / 2; for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], b = pts[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]); while (acc < L) { const t = acc / L; fn([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], Math.atan2(b[1] - a[1], b[0] - a[0])); acc += step; } acc -= L; } };
+  const crossing = (w, h, r, n = 4, side = 'h') => { const cp = []; for (let i = 0; i <= n; i++) { const t = i / n; cp.push(side === 'h' ? [-20 + (w + 40) * t, h * (.2 + .6 * r())] : [w * (.2 + .6 * r()), -20 + (h + 40) * t]); } return catmull(cp, 12); };
+  const near = (pts, d) => (x, y, rr) => distLine([x, y], pts) > d + rr;
+
+  const SCENES = {
+    iberdrola(w, h, r) {
+      const J = (a, b) => a + (b - a) * r(), it = fields(w, h, 11, 9, 30, r, J(-12, 12) * D, { pasture: 4, rows: 3, bare: 2 });
+      const road = crossing(w, h, r, 4, 'v'); it.push({ t: 'road', pts: road, w: 5 });
+      const y0 = h * J(.3, .7), y1 = Math.max(h * .15, Math.min(h * .85, y0 + h * J(-.3, .3))), P = [[-10, y0], [w + 10, y1]];
+      const n2 = noise2(r, w * .14), woods = n2;
+      const crowns = scatter(w, h, 4.5, 8.5, r, 6500, (x, y, rr) => woods(x, y) > .12 && distLine([x, y], road) > 4 + rr);
+      const cw = 15; crowns.forEach(c => { c.flag = distLine([c.x, c.y], P) < cw + c.r * .6; });
+      it.push(...crowns);
+      const n = Math.round(w / 120) + 1, py = []; for (let i = 0; i <= n; i++) { const t = (i + .5) / (n + 1); py.push([P[0][0] + (P[1][0] - P[0][0]) * t, P[0][1] + (P[1][1] - P[0][1]) * t]); }
+      it.push({ t: 'power', pts: P, pylons: py, cw });
+      return it;
+    },
+    ufd(w, h, r) {
+      const J = (a, b) => a + (b - a) * r(), it = fields(w, h, 9, 8, 26, r, J(-20, 20) * D, { pasture: 5, rows: 3, bare: 1 });
+      const roads = [crossing(w, h, r, 4, 'h'), crossing(w, h, r, 3, 'v')];
+      roads.forEach(p => it.push({ t: 'road', pts: p, w: 5 }));
+      const crowns = scatter(w, h, 4, 7.5, r, 1400, (x, y, rr) => noise2(r, 60)(x, y) > .35 && roads.every(p => distLine([x, y], p) > 6 + rr));
+      it.push(...crowns);
+      const houses = [], poles = [];
+      roads.forEach((p, ri) => {
+        const side = ri ? 1 : -1;
+        along(offsetLine(p, side * 8), 26, q => poles.push([q[0], q[1]]));
+        along(p, 14, (q, a) => {
+          if (r() > .32) return;
+          const s = (r() < .5 ? 1 : -1) * J(13, 20), x = q[0] - Math.sin(a) * s, y = q[1] + Math.cos(a) * s, ww = J(2.5, 4), hh = J(3, 5), ca = Math.cos(a), sa = Math.sin(a);
+          houses.push({ t: 'bldg', poly: [[-ww, -hh], [ww, -hh], [ww, hh], [-ww, hh]].map(v => [x + v[0] * ca - v[1] * sa, y + v[0] * sa + v[1] * ca]) });
+        });
+      });
+      it.push(...houses.filter(b => roads.every(p => distLine(centroid(b.poly), p) > 7)));
+      for (let i = 1; i < poles.length; i++) if (Math.hypot(poles[i][0] - poles[i - 1][0], poles[i][1] - poles[i - 1][1]) < 40) it.push({ t: 'wire', a: poles[i - 1], b: poles[i] });
+      houses.forEach(b => { const c = centroid(b.poly); let best = null, bd = 34; poles.forEach(p => { const d = Math.hypot(p[0] - c[0], p[1] - c[1]); if (d < bd) { bd = d; best = p; } }); if (best) it.push({ t: 'wire', a: best, b: c, drop: true }); });
+      poles.forEach(p => it.push({ t: 'pole', x: p[0], y: p[1] }));
+      return it;
+    },
+    moeve(w, h, r) {
+      const J = (a, b) => a + (b - a) * r(), it = fields(w, h, 13, 11, 22, r, J(-25, 25) * D, { rows: 4, orchard: 3, pasture: 3, bare: 2 });
+      const hedges = [];
+      it.forEach(p => { if (r() < .3) { const e = r() * 4 | 0, a = p.poly[e], b = p.poly[(e + 1) % 4]; along([a, b], 8, q => hedges.push({ t: 'crown', x: q[0] + J(-1.5, 1.5), y: q[1] + J(-1.5, 1.5), r: J(2.6, 4.2) })); } });
+      const track = crossing(w, h, r, 3, r() < .5 ? 'h' : 'v'); it.push({ t: 'road', pts: track, w: 3.4 });
+      it.push(...hedges.filter(c => c.x > -6 && c.x < w + 6 && c.y > -6 && c.y < h + 6 && distLine([c.x, c.y], track) > 3 + c.r));
+      return it;
+    },
+    hazi(w, h, r) {
+      const n = noise2(r, w * .2), track = crossing(w, h, r, 4, 'h');
+      const it = [{ t: 'ground', w, h }];
+      it.push({ t: 'road', pts: track, w: 4 });
+      it.push(...scatter(w, h, 5.5, 11, r, 9000, (x, y, rr) => n(x, y) > -.45 && distLine([x, y], track) > 4 + rr * .8).map(c => (c.r *= .9 + .25 * (n(c.x, c.y) + 1) / 2, c)));
+      return it;
+    },
+    azpilur(w, h, r) {
+      const J = (a, b) => a + (b - a) * r(), it = fields(w, h, 10, 8, 28, r, J(-15, 15) * D, { pasture: 5, rows: 3, bare: 1, orchard: 1 });
+      const riv = crossing(w, h, r, 5, 'h'), rw = Math.max(7, h * .028);
+      const road = offsetLine(riv, rw * 2.6 + 10), road2 = crossing(w, h, r, 3, 'v');
+      const n = noise2(r, w * .16);
+      it.push(...scatter(w, h, 4, 8, r, 4000, (x, y, rr) => n(x, y) > .25 && distLine([x, y], riv) > rw + 5 + rr && distLine([x, y], road) > 4 + rr && distLine([x, y], road2) > 4 + rr));
+      it.push({ t: 'road', pts: road, w: 4.5 }, { t: 'road', pts: road2, w: 4.5 }, { t: 'river', pts: riv, w: rw });
+      // the village, where the road crosses the river
+      let vc = road2[Math.floor(road2.length / 2)], bd = Infinity; road2.forEach(q => { const d = distLine(q, riv); if (d < bd && d > rw + 14) { bd = d; vc = q; } });
+      for (let k = 0; k < 26; k++) { const a = r() * 6.283, d = 10 + r() * 46, x = vc[0] + Math.cos(a) * d, y = vc[1] + Math.sin(a) * d * .8; if (distLine([x, y], riv) < rw + 8 || distLine([x, y], road2) < 7) continue; const ww = J(3, 6), hh = J(3, 7), t = J(-20, 20) * D, ca = Math.cos(t), sa = Math.sin(t); it.push({ t: 'bldg', poly: [[-ww, -hh], [ww, -hh], [ww, hh], [-ww, hh]].map(v => [x + v[0] * ca - v[1] * sa, y + v[0] * sa + v[1] * ca]) }); }
+      return it;
+    },
+    agrology(w, h, r) {
+      const J = (a, b) => a + (b - a) * r(), ang = J(-12, 12) * D;
+      const it = fields(w, h, 5, 4, 40, r, ang, { pasture: 3, rows: 2, bare: 1 });
+      const ca = Math.cos(ang), sa = Math.sin(ang), cx = w * J(.46, .54), cy = h * J(.46, .54), hw = w * J(.36, .42), hh = h * J(.34, .4);
+      const big = [[-hw, -hh], [hw, -hh * J(.9, 1.1)], [hw * J(.92, 1.04), hh], [-hw * J(.95, 1.05), hh * J(.9, 1.05)]].map(v => [cx + v[0] * ca - v[1] * sa, cy + v[0] * sa + v[1] * ca]);
+      it.push({ t: 'parcel', poly: big, ang, k: 'rows', sp: 4, big: true, forecast: true });
+      for (let e = 0; e < 4; e++) { if (e === 2) continue; along([big[e], big[(e + 1) % 4]], 9, q => it.push({ t: 'crown', x: q[0] + J(-1.5, 1.5), y: q[1] + J(-1.5, 1.5), r: J(3, 5.2) })); }
+      it.push({ t: 'road', pts: offsetLine([big[2], big[3]], -9).map(p => p), w: 3.4 });
+      return it;
+    },
+    sima(w, h, r) {
+      const J = (a, b) => a + (b - a) * r(), it = fields(w, h, 17, 14, 16, r, J(-30, 30) * D, { rows: 5, orchard: 2, pasture: 3, bare: 2 });
+      const road = crossing(w, h, r, 4, r() < .5 ? 'h' : 'v'); it.push({ t: 'road', pts: road, w: 4 });
+      for (let k = 0; k < 4; k++) { const q = road[Math.floor(r() * road.length)], a = r() * 6.283; for (let j = 0; j < 4; j++) { const x = q[0] + Math.cos(a) * 14 + J(-9, 9), y = q[1] + Math.sin(a) * 14 + J(-9, 9), s = J(2.5, 4.5); it.push({ t: 'bldg', poly: [[x - s, y - s], [x + s, y - s], [x + s, y + s * 1.3], [x - s, y + s * 1.3]] }); } }
+      return it;
+    },
+    eve(w, h, r) {
+      const J = (a, b) => a + (b - a) * r(), ang = J(-8, 8) * D;
+      const cp = [[-30, h * J(.62, .8)], [w * .3, h * J(.48, .64)], [w * .62, h * J(.42, .58)], [w + 30, h * J(.22, .4)]];
+      const riv = catmull(cp, 16), rw = Math.max(10, h * .05);
+      const blocks = fields(w, h, 15, 10, 10, r, ang, { b: 1 });
+      const n = noise2(r, w * .22), it = [{ t: 'ground', w, h }];
+      const park = [w * J(.15, .8), h * J(.15, .8)];
+      blocks.forEach(b => {
+        const c = centroid(b.poly);
+        if (distLine(c, riv) < rw + 18) return;
+        const poly = shrink(b.poly, 4.5);
+        if (Math.hypot(c[0] - park[0], c[1] - park[1]) < Math.min(w, h) * .16) { it.push({ t: 'parcel', poly, ang: b.ang, k: 'pasture', sp: 5, park: true }); it.push(...scatter(w, h, 3, 5.5, r, 260, (x, y, rr) => inPoly([x, y], shrink(poly, rr + 1)))); return; }
+        it.push({ t: 'block', poly, inner: shrink(poly, 5.5 + r() * 2), v: (n(c[0], c[1]) + 1) / 2 });
+      });
+      it.push({ t: 'river', pts: riv, w: rw, wide: true });
+      for (let k = 0; k < 3; k++) { const i = Math.floor(riv.length * (.25 + .25 * k + J(-.06, .06))), q = riv[i], a = riv[Math.min(riv.length - 1, i + 1)], dx = a[0] - q[0], dy = a[1] - q[1], m = Math.hypot(dx, dy) || 1, s = rw + 6; it.push({ t: 'bridge', a: [q[0] - dy / m * s, q[1] + dx / m * s], b: [q[0] + dy / m * s, q[1] - dx / m * s] }); }
+      return it;
+    },
+  };
+
+  // as it looks
+  const NAT = {
+    ground(g, o, r) { g.fillStyle = K.pFaint; const n = o.w * o.h * .004; for (let i = 0; i < n; i++) g.fillRect(r() * o.w, r() * o.h, 1, 1); },
+    parcel(g, o, r) {
+      const wob = wobble(o.poly, .8, r, true);
+      g.save(); line(g, wob, true); g.clip();
+      const c = centroid(o.poly), L = reach(o.poly), ca = Math.cos(o.ang), sa = Math.sin(o.ang);
+      if (o.k === 'rows') { g.strokeStyle = o.big ? K.pSoft : K.pFaint; g.lineWidth = .7; g.beginPath(); for (let d = -L; d <= L; d += o.sp) { g.moveTo(c[0] - ca * L - sa * d, c[1] - sa * L + ca * d); g.lineTo(c[0] + ca * L - sa * d, c[1] + sa * L + ca * d); } g.stroke(); }
+      if (o.k === 'orchard') { g.strokeStyle = K.pSoft; g.lineWidth = .6; const s = 8, N = Math.ceil(L / s); for (let i = -N; i <= N; i++) for (let j = -N; j <= N; j++) { const x = c[0] + ca * i * s - sa * j * s, y = c[1] + sa * i * s + ca * j * s; g.beginPath(); g.arc(x, y, 1.6, 0, 6.283); g.stroke(); } }
+      if (o.k === 'pasture') { g.fillStyle = K.pFaint; const X = o.poly.map(p => p[0]), Y = o.poly.map(p => p[1]), x0 = Math.min(...X), y0 = Math.min(...Y), ww = Math.max(...X) - x0, hh = Math.max(...Y) - y0; for (let i = 0; i < ww * hh * .01; i++) g.fillRect(x0 + r() * ww, y0 + r() * hh, 1, 1); }
+      if (o.k === 'bare') { g.strokeStyle = K.pFaint; g.lineWidth = .5; g.beginPath(); for (let d = -L; d <= L; d += 11) { g.moveTo(c[0] - ca * L - sa * d, c[1] - sa * L + ca * d); g.lineTo(c[0] + ca * L - sa * d, c[1] + sa * L + ca * d); } g.stroke(); }
+      g.restore();
+      g.strokeStyle = K.pSoft; g.lineWidth = .8; line(g, wob, true); g.stroke();
+    },
+    block(g, o, r) {
+      const a = wobble(o.poly, .5, r, true), b = wobble(o.inner, .5, r, true);
+      g.fillStyle = K.pFaint; g.save(); g.translate(1.6, 1.6); line(g, a, true); g.fill(); g.restore();
+      g.fillStyle = K.pBg; line(g, a, true); g.fill();
+      g.strokeStyle = K.pLine; g.lineWidth = .8; line(g, a, true); g.stroke();
+      g.strokeStyle = K.pSoft; g.lineWidth = .6; line(g, b, true); g.stroke();
+      g.beginPath(); for (let i = 0; i < 4; i++) { const p = o.poly[i], q = o.inner[i]; g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]); } g.stroke();
+    },
+    crown(g, o, r) {
+      const n = 18, ph = r() * 6.283, pts = [];
+      for (let i = 0; i < n; i++) { const a = i / n * 6.283, k = 1 + .13 * Math.sin(a * 3 + ph) + .07 * Math.sin(a * 5 + ph * 2) + (r() - .5) * .08; pts.push([o.x + Math.cos(a) * o.r * k, o.y + Math.sin(a) * o.r * k]); }
+      g.fillStyle = K.pFaint; for (let i = 0; i < o.r * o.r * .5; i++) { const a = r() * 6.283, d = Math.sqrt(r()) * o.r; g.fillRect(o.x + o.r * .35 + Math.cos(a) * d, o.y + o.r * .42 + Math.sin(a) * d, 1, 1); }
+      g.fillStyle = K.pBg; line(g, pts, true); g.fill();
+      g.strokeStyle = K.pLine; g.lineWidth = .8; g.stroke();
+      g.fillStyle = K.pSoft; for (let i = 0; i < o.r * o.r * .34; i++) { const a = -.6 + r() * 2.6, d = o.r * (.25 + .7 * Math.sqrt(r())); g.fillRect(o.x + Math.cos(a) * d - .5, o.y + Math.sin(a) * d - .5, 1, 1); }
+      if (o.r > 5) { g.strokeStyle = K.pSoft; g.lineWidth = .6; g.beginPath(); g.arc(o.x - o.r * .15, o.y - o.r * .1, o.r * .5, 3.4, 4.6); g.stroke(); }
+    },
+    road(g, o, r) {
+      const a = wobble(offsetLine(o.pts, o.w / 2), .5, r, false), b = wobble(offsetLine(o.pts, -o.w / 2), .5, r, false);
+      g.fillStyle = K.pBg; line(g, a.concat(b.slice().reverse()), true); g.fill();
+      g.strokeStyle = K.pSoft; g.lineWidth = .8; line(g, a); g.stroke(); line(g, b); g.stroke();
+    },
+    river(g, o, r) {
+      const n = noise1(r), wf = i => o.w * (1 + .22 * n(i * 3)), a = wobble(offsetLine(o.pts, i => wf(i)), .6, r, false), b = wobble(offsetLine(o.pts, i => -wf(i)), .6, r, false);
+      g.fillStyle = K.pBg; line(g, a.concat(b.slice().reverse()), true); g.fill();
+      g.strokeStyle = K.pLine; g.lineWidth = .9; line(g, a); g.stroke(); line(g, b); g.stroke();
+      g.strokeStyle = K.pFaint; g.lineWidth = .7; g.beginPath();
+      along(o.pts, o.wide ? 9 : 13, (q, ang) => { const s = (r() - .5) * o.w * 1.3, x = q[0] - Math.sin(ang) * s, y = q[1] + Math.cos(ang) * s, L = 3 + r() * 5; g.moveTo(x - Math.cos(ang) * L, y - Math.sin(ang) * L); g.lineTo(x + Math.cos(ang) * L, y + Math.sin(ang) * L); });
+      g.stroke();
+    },
+    bldg(g, o, r) {
+      g.fillStyle = K.pFaint; g.save(); g.translate(1.4, 1.4); line(g, o.poly, true); g.fill(); g.restore();
+      g.fillStyle = K.pBg; line(g, o.poly, true); g.fill(); g.strokeStyle = K.pLine; g.lineWidth = .8; g.stroke();
+    },
+    bridge(g, o) { const dx = o.b[0] - o.a[0], dy = o.b[1] - o.a[1], m = Math.hypot(dx, dy), nx = -dy / m * 2.4, ny = dx / m * 2.4; g.fillStyle = K.pBg; g.beginPath(); g.moveTo(o.a[0] + nx, o.a[1] + ny); g.lineTo(o.b[0] + nx, o.b[1] + ny); g.lineTo(o.b[0] - nx, o.b[1] - ny); g.lineTo(o.a[0] - nx, o.a[1] - ny); g.closePath(); g.fill(); g.strokeStyle = K.pLine; g.lineWidth = .8; g.beginPath(); g.moveTo(o.a[0] + nx, o.a[1] + ny); g.lineTo(o.b[0] + nx, o.b[1] + ny); g.moveTo(o.a[0] - nx, o.a[1] - ny); g.lineTo(o.b[0] - nx, o.b[1] - ny); g.stroke(); },
+    power(g, o) {
+      const [a, b] = o.pts, dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy), ux = dx / m, uy = dy / m, nx = -uy, ny = ux;
+      g.strokeStyle = K.pLine; g.lineWidth = .6; g.beginPath(); for (const s of [-3.2, 0, 3.2]) { g.moveTo(a[0] + nx * s, a[1] + ny * s); g.lineTo(b[0] + nx * s, b[1] + ny * s); } g.stroke();
+      for (const p of o.pylons) {
+        const q = [[-3.5, -3.5], [3.5, -3.5], [3.5, 3.5], [-3.5, 3.5]].map(v => [p[0] + ux * v[0] + nx * v[1], p[1] + uy * v[0] + ny * v[1]]);
+        g.fillStyle = K.pBg; line(g, q, true); g.fill(); g.strokeStyle = K.pLine; g.lineWidth = .8; g.stroke();
+        g.beginPath(); g.moveTo(q[0][0], q[0][1]); g.lineTo(q[2][0], q[2][1]); g.moveTo(q[1][0], q[1][1]); g.lineTo(q[3][0], q[3][1]); g.moveTo(p[0] - nx * 8, p[1] - ny * 8); g.lineTo(p[0] + nx * 8, p[1] + ny * 8); g.stroke();
+      }
+    },
+    wire(g, o) { g.strokeStyle = o.drop ? K.pFaint : K.pSoft; g.lineWidth = .6; g.beginPath(); g.moveTo(o.a[0], o.a[1]); g.lineTo(o.b[0], o.b[1]); g.stroke(); },
+    pole(g, o) { g.fillStyle = K.pLine; g.beginPath(); g.arc(o.x, o.y, 1.3, 0, 6.283); g.fill(); },
+  };
+  // as Woza models it
+  const MOD = {
+    ground() {},
+    parcel(g, o, r) {
+      g.strokeStyle = K.pLine; g.lineWidth = .9; line(g, o.poly, true); g.stroke();
+      g.save(); line(g, o.poly, true); g.clip();
+      const c = centroid(o.poly), ca = Math.cos(o.ang), sa = Math.sin(o.ang);
+      if (o.forecast) {
+        const n = noise2(r, 90); g.strokeStyle = K.pSoft; g.lineWidth = .8; g.fillStyle = K.pLine;
+        const N = Math.ceil(reach(o.poly) / 8); for (let j = -N; j <= N; j++) for (let i = -N; i <= N; i++) { const x = c[0] + ca * i * 8 - sa * j * 8, y = c[1] + sa * i * 8 + ca * j * 8; if (!inPoly([x, y], o.poly)) continue; const v = (n(x, y) + 1) / 2, L = 1.5 + v * 7; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - L); g.stroke(); g.fillRect(x - .8, y - .8, 1.6, 1.6); }
+      } else {
+        const s = { rows: 7, orchard: 8, pasture: 12, bare: 17 }[o.k] || 12, N = Math.ceil(reach(o.poly) / s); g.fillStyle = K.pSoft;
+        for (let j = -N; j <= N; j++) for (let i = -N; i <= N; i++) { const x = c[0] + ca * i * s - sa * j * s, y = c[1] + sa * i * s + ca * j * s; g.fillRect(x - .6, y - .6, 1.2, 1.2); }
+      }
+      g.restore();
+      g.fillStyle = K.pLine; for (const p of o.poly) { g.beginPath(); g.arc(p[0], p[1], 1.7, 0, 6.283); g.fill(); }
+    },
+    block(g, o) {
+      g.strokeStyle = K.pLine; g.lineWidth = .9; line(g, o.poly, true); g.stroke();
+      g.fillStyle = K.pLine; for (const p of o.poly) g.fillRect(p[0] - 1.3, p[1] - 1.3, 2.6, 2.6);
+      g.save(); line(g, o.poly, true); g.clip(); g.fillStyle = K.pSoft; const s = 9 - o.v * 5.5, X = o.poly.map(p => p[0]), Y = o.poly.map(p => p[1]);
+      for (let x = Math.min(...X); x < Math.max(...X); x += s) for (let y = Math.min(...Y); y < Math.max(...Y); y += s) g.fillRect(x, y, 1.2, 1.2);
+      g.restore();
+    },
+    crown(g, o) {
+      g.strokeStyle = o.flag ? K.acc : K.pLine; g.lineWidth = o.flag ? 1.4 : .8; g.beginPath(); g.arc(o.x, o.y, o.r, 0, 6.283); g.stroke();
+      g.fillStyle = o.flag ? K.acc : K.pLine; g.beginPath(); g.arc(o.x, o.y, 1.3, 0, 6.283); g.fill();
+    },
+    road(g, o) {
+      g.strokeStyle = K.pSoft; g.lineWidth = 1; line(g, o.pts); g.stroke();
+      g.fillStyle = K.pLine; along(o.pts, 34, q => { g.beginPath(); g.arc(q[0], q[1], 1.6, 0, 6.283); g.fill(); });
+    },
+    river(g, o) {
+      g.fillStyle = K.pBg; line(g, offsetLine(o.pts, o.w).concat(offsetLine(o.pts, -o.w).reverse()), true); g.fill();
+      g.setLineDash([3, 4]); g.strokeStyle = K.pSoft; g.lineWidth = .8; line(g, offsetLine(o.pts, o.w)); g.stroke(); line(g, offsetLine(o.pts, -o.w)); g.stroke(); g.setLineDash([]);
+      g.strokeStyle = K.pLine; g.lineWidth = 1; line(g, o.pts); g.stroke();
+      g.fillStyle = K.pLine; along(o.pts, 40, q => { g.beginPath(); g.arc(q[0], q[1], 1.8, 0, 6.283); g.fill(); });
+    },
+    bldg(g, o) { g.strokeStyle = K.pLine; g.lineWidth = .8; line(g, o.poly, true); g.stroke(); const c = centroid(o.poly); g.fillStyle = K.pLine; g.fillRect(c[0] - .8, c[1] - .8, 1.6, 1.6); },
+    bridge(g, o) { g.strokeStyle = K.pLine; g.lineWidth = 1; g.beginPath(); g.moveTo(o.a[0], o.a[1]); g.lineTo(o.b[0], o.b[1]); g.stroke(); },
+    power(g, o) {
+      const [a, b] = o.pts, dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy), nx = -dy / m, ny = dx / m;
+      g.setLineDash([4, 4]); g.strokeStyle = K.pSoft; g.lineWidth = .8; g.beginPath(); for (const s of [-o.cw, o.cw]) { g.moveTo(a[0] + nx * s, a[1] + ny * s); g.lineTo(b[0] + nx * s, b[1] + ny * s); } g.stroke(); g.setLineDash([]);
+      g.strokeStyle = K.pLine; g.lineWidth = 1.1; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
+      for (const p of o.pylons) { g.beginPath(); g.arc(p[0], p[1], 3.4, 0, 6.283); g.fillStyle = K.pBg; g.fill(); g.strokeStyle = K.pLine; g.lineWidth = 1; g.stroke(); g.fillStyle = K.pLine; g.beginPath(); g.arc(p[0], p[1], 1.1, 0, 6.283); g.fill(); }
+    },
+    wire(g, o) { g.strokeStyle = o.drop ? K.pSoft : K.pLine; g.lineWidth = o.drop ? .6 : .9; g.beginPath(); g.moveTo(o.a[0], o.a[1]); g.lineTo(o.b[0], o.b[1]); g.stroke(); },
+    pole(g, o) { g.fillStyle = K.pBg; g.fillRect(o.x - 2.2, o.y - 2.2, 4.4, 4.4); g.strokeStyle = K.pLine; g.lineWidth = .9; g.strokeRect(o.x - 2.2, o.y - 2.2, 4.4, 4.4); },
+  };
+
+  const plates = $$('.plate canvas').map(cv => ({ cv, g: cv.getContext('2d'), kind: cv.dataset.scene, w: 0, h: 0, A: null, B: null, x: .5, v: 0, tgt: .5, hover: null, vis: false }));
+  function layer(pl, model) {
+    const c = document.createElement('canvas'); c.width = pl.cv.width; c.height = pl.cv.height;
+    const g = c.getContext('2d'); g.setTransform(pl.dpr, 0, 0, pl.dpr, 0, 0); g.lineJoin = 'round'; g.lineCap = 'round';
+    g.fillStyle = K.pBg; g.fillRect(0, 0, pl.w, pl.h);
+    const r = rng(SEED ^ hash(pl.kind + (model ? 'model' : 'look')));
+    for (const o of pl.scene) (model ? MOD : NAT)[o.t](g, o, r, pl);
+    return c;
+  }
+  function sizePlate(pl) {
+    const w = Math.round(pl.cv.clientWidth), h = Math.round(pl.cv.clientHeight);
+    if (!w || !h || (w === pl.w && h === pl.h && pl.dpr === DPR && pl.A)) return;
+    pl.w = w; pl.h = h; pl.dpr = DPR; pl.cv.width = Math.round(w * DPR); pl.cv.height = Math.round(h * DPR);
+    pl.scene = SCENES[pl.kind](w, h, rng(SEED ^ hash(pl.kind)));
+    pl.A = layer(pl, false); pl.B = layer(pl, true); pl.drawn = -1;
+  }
+  function paintPlate(pl) {
+    if (!pl.A) return;
+    const g = pl.g, W = pl.cv.width, H = pl.cv.height, Y = Math.max(0, Math.min(H, Math.round(pl.x * H)));
+    if (Y === pl.drawn) return; pl.drawn = Y;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    if (Y > 0) g.drawImage(pl.A, 0, 0, W, Y, 0, 0, W, Y);
+    if (Y < H) g.drawImage(pl.B, 0, Y, W, H - Y, 0, Y, W, H - Y);
+    const t = Math.max(1, Math.round(1.5 * pl.dpr)), e = Math.round(5 * pl.dpr);
+    g.fillStyle = K.acc; g.fillRect(0, Y - (t >> 1), W, t); g.fillRect(0, Y - e, t, e * 2); g.fillRect(W - t, Y - e, t, e * 2);
+  }
+  plates.forEach(pl => {
+    if (!fine) return;
+    pl.cv.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse' && e.pointerType !== 'pen') return; const b = pl.cv.getBoundingClientRect(); pl.hover = Math.max(.04, Math.min(.96, (e.clientY - b.top) / b.height)); play(); });
+    pl.cv.addEventListener('pointerleave', () => { pl.hover = null; play(); });
+  });
+
+  // ── Small drawings in the cells, by the same hand ──
+  function figMarkup(T, vw, vh, soilY, x0 = 24, x1 = vw - 24) {
+    const solid = T.parts.filter(p => !p.dash && !p.ghost), dash = T.parts.filter(p => p.dash), ghost = T.parts.filter(p => p.ghost);
+    solid.concat(dash).forEach(p => outline(p, p.kind === 'trunk' ? .45 : 0));
+    const sr = rng(hash(T.key || 'fig'));
+    let s = `<svg class="figsvg" viewBox="0 0 ${vw} ${vh}" aria-hidden="true" focusable="false">`;
+    s += `<path class="soil" d="M${x0} ${soilY + .5}H${x1}"/>`;
+    s += '<g class="dot">' + Array.from({ length: Math.round((x1 - x0) * (vh - soilY) * .035) }, () => `<rect x="${f1(x0 + sr() * (x1 - x0))}" y="${f1(soilY + 2 + (vh - soilY - 3) * Math.pow(sr(), 1.8))}" width="1" height="1"/>`).join('') + '</g>';
+    if (ghost.length) s += `<g class="faint">${ghost.map(p => `<path class="rib" style="stroke-width:${f1(Math.max(1, p.w0 * .5))};stroke-opacity:1" d="${dPoly(p.pts, false)}"/>`).join('')}</g>`;
+    s += `<g class="o">${solid.map(p => `<path d="${dPoly(p.poly)}"/>`).join('')}</g><g class="f">${solid.map(p => `<path d="${dPoly(p.poly)}"/>`).join('')}</g>`;
+    for (const l of T.leaves.filter(l => !l.dash)) { const g = leafGeo(l); s += `<path class="lf" d="${dLeaf(l)}"/><path class="rib" d="M${f1(l.x)} ${f1(l.y)}L${f1(l.x + (g.tip[0] - l.x) * .82)} ${f1(l.y + (g.tip[1] - l.y) * .82)}"/>`; }
+    for (const f of T.fruits) s += `<path class="rib" d="M${f1(f.sx)} ${f1(f.sy)}L${f1(f.x)} ${f1(f.y - f.r)}"/><circle class="fr${f.accent ? ' fr--a' : ''}" cx="${f1(f.x)}" cy="${f1(f.y)}" r="${f1(f.r)}"/>`;
+    for (const p of dash) s += `<path class="dash" d="${dPoly(p.poly)}"/>`;
+    for (const l of T.leaves.filter(l => l.dash)) s += `<path class="dash" d="${dLeaf(l)}"/>`;
+    for (const u of T.unions) { const n = [Math.cos(u.a), Math.sin(u.a)], h = u.len / 2; s += `<path class="u" d="M${f1(u.x - n[0] * h)} ${f1(u.y - n[1] * h)}L${f1(u.x + n[0] * h)} ${f1(u.y + n[1] * h)}"/>`; }
+    s += T.extra || '';
+    return s + '</svg>';
+  }
+  const rootsOf = (T, base, lens, w, mark) => [242, 207, 154, 119].map((deg, i) => {
+    const a0 = (deg + T.J(-4, 4)) * D, p = T.add('root', null, base, a0, lens[i], a0 + (Math.PI - a0) * .3, w, .9, null, 0, null);
+    if (mark !== undefined && mark !== i) p.ghost = true;
+    [.4, .68].forEach((t, j) => { const q = T.off(p, t, (j ? -1 : 1) * T.J(30, 46) * D, lens[i] * T.J(.24, .34), .5, 'rootlet', null, null, .4, Math.PI); if (p.ghost) q.ghost = true; });
+    return p;
+  });
+  const FIGS = {
+    venture(el) {
+      const seed = +el.dataset.seed, T = grower(rng(SEED ^ seed)), J = T.J, LS = 10, sy = 160; T.key = 'v' + seed;
+      const tr = T.add('trunk', null, [120 + J(-6, 6), sy], J(-3, 3) * D, J(64, 76), J(-5, 5) * D, 8.5, 4.6, null, 0, null);
+      T.union(tr, .2, null, 7);
+      const b1 = T.off(tr, J(.55, .68), -J(42, 55) * D, J(38, 48), .7, 'b', null, null);
+      const b2 = T.off(tr, J(.74, .84), J(40, 52) * D, J(34, 44), .7, 'b', null, null);
+      const b3 = T.add('b', null, ptAt(tr, 1), angAt(tr, 1) + J(-6, 6) * D, J(28, 36), J(-8, 8) * D, 3.4, 1.1, tr, 1, null);
+      [b1, b2, b3].forEach(b => T.foliage(b, null, LS, .4, 5));
+      const sp = T.off(b2, .72, J(70, 92) * D, 10, .5, 'spur', null, null, .35, 150 * D), q = ptAt(sp, 1);
+      T.fruits.push({ x: q[0], y: q[1] + 9, r: 7.5, sx: q[0], sy: q[1], accent: true });
+      rootsOf(T, [tr.pts[0][0], sy], [24, 30, 30, 24], 4.2);
+      return figMarkup(T, 240, 196, sy, 40, 200);
+    },
+    seedling(el) {
+      const seed = +el.dataset.seed, T = grower(rng(SEED ^ seed)), J = T.J, sy = 92; T.key = 's' + seed;
+      [62, 120, 178].forEach((x, i) => {
+        const h = J(46, 60) * (i === 1 ? 1 : .8), st = T.add('seed', null, [x + J(-3, 3), sy], J(-6, 6) * D, h, J(-9, 9) * D, 3.6, 1.2, null, 0, null);
+        const rt = T.add('seedroot', null, [st.pts[0][0], sy], Math.PI + J(-12, 12) * D, J(16, 22), Math.PI, 2.6, .8, null, 0, null);
+        if (i !== 1) { st.ghost = rt.ghost = true; return; }
+        T.leafAt(st, .97, -1, 16); T.leafAt(st, .97, 1, 16); T.leafAt(st, .6, J(0, 1) < .5 ? 1 : -1, 13); T.leafAt(st, .35, J(0, 1) < .5 ? 1 : -1, 10);
+      });
+      T.extra = `<path class="rib" style="stroke-opacity:.6" d="M150 ${sy + 8}V${sy - 40}"/><rect class="fr" x="143" y="${sy - 53}" width="17" height="12"/>`;
+      return figMarkup(T, 240, 124, sy);
+    },
+    root(el) {
+      const i = +el.dataset.root, T = grower(rng(SEED ^ 0x900d)), sy = 26; T.key = 'r' + i;
+      const st = T.add('trunk', null, [120, sy], 0, 22, 0, 18, 15, null, 0, null);
+      T.union(st, .5, null, 7);
+      rootsOf(T, [120, sy], [76, 82, 82, 76], 6.5, i);
+      return figMarkup(T, 240, 112, sy, 8, 232);
+    },
+    topwork() {
+      const T = grower(rng(SEED ^ 0x70b)), J = T.J, sy = 186, LS = 11; T.key = 'tw';
+      const tr = T.add('trunk', null, [150, sy], J(-2, 2) * D, 66, J(-4, 4) * D, 15, 9, null, 0, null);
+      T.union(tr, .14, null, 8);
+      const l = T.off(tr, .9, -J(48, 56) * D, 78, .7, 'limb', null, null, .5);
+      const r2 = T.off(tr, .95, J(44, 52) * D, 72, .7, 'limb', null, null, .5);
+      const up = T.add('b', null, ptAt(tr, 1), angAt(tr, 1), 56, J(-6, 6) * D, 6.4, 1.2, tr, 1, null);
+      T.foliage(l, null, LS, .45, 6); T.foliage(up, null, LS, .45, 6);
+      T.foliage(r2, null, LS, .7, 3);
+      const stub = T.off(r2, .42, -J(38, 46) * D, 12, .7, 'stub', null, null, 0); stub.w1 = stub.w0 * .9;
+      const sc = T.add('scion', null, ptAt(stub, 1), angAt(stub, 1), 50, J(-8, 4) * D, stub.w1 * .9, 1.1, stub, 1, null); sc.dash = true;
+      T.union(stub, 1, null, 7);
+      const before = T.leaves.length; T.foliage(sc, null, LS, .4, 5); T.leaves.slice(before).forEach(q => q.dash = true);
+      rootsOf(T, [150, sy], [28, 34, 34, 28], 6);
+      return figMarkup(T, 320, 222, sy);
+    },
+    newtree() {
+      const T = grower(rng(SEED ^ 0x9e7)), J = T.J, sy = 186, LS = 11; T.key = 'nt';
+      const rs = T.add('trunk', null, [160, sy], J(-2, 2) * D, 34, 0, 10, 8, null, 0, null);
+      const sc = T.add('scion', null, ptAt(rs, 1), angAt(rs, 1), 70, J(-6, 6) * D, 7.6, 2.2, rs, 1, null); sc.dash = true;
+      T.union(rs, 1, null, 8);
+      const before = T.leaves.length;
+      const a = T.off(sc, .55, -J(42, 54) * D, 40, .6, 'b', null, null), b = T.off(sc, .72, J(40, 52) * D, 36, .6, 'b', null, null);
+      a.dash = b.dash = true; T.foliage(a, null, LS, .4, 4); T.foliage(b, null, LS, .4, 4); T.foliage(sc, null, LS, .85, 2);
+      T.leaves.slice(before).forEach(q => q.dash = true);
+      rootsOf(T, [160, sy], [26, 32, 32, 26], 5);
+      return figMarkup(T, 320, 222, sy);
+    },
+  };
+  function buildFigs() { $$('.fig').forEach(el => { const f = FIGS[el.dataset.fig]; if (f) el.innerHTML = f(el); }); }
+
+  // ── The index: every subject, A to Z, each with where it lives ──
+  const DECK = 'mailto:investors@wozalabs.com?subject=Investor%20deck%20request%20from%20%5Byour%20fund%5D';
+  const IX = [
+    ['AboveForest', [['An entire forest. A digital twin down to the tree.', 'v-aboveforest']]],
+    ['Agriculture', [['Agrology', 'd-agrology'], ['SIMA Earth', 'd-sima'], ['Hectareo', 'v-hectareo'], ['AgriLayer', 'r-agrilayer'], ['Hectareo-Agri 3.8B', 'r-hectareo-agri']]],
+    ['Agrology', [['The field becomes the forecast.', 'd-agrology']]],
+    ['AgriLayer', [['From crop cycle to chain of custody.', 'r-agrilayer']]],
+    ['Argentina', [['two production deployments of Hectareo-Agri 3.8B', 'r-hectareo-agri']]],
+    ['Ark', [['Capture the signals.', 'e-ark']]],
+    ['Atlas', [['See the whole.', 'e-atlas']]],
+    ['Azpilur', [['An entire territory. One operating system.', 'd-azpilur']]],
+    ['BEAZ', [['Bizkaia, BEAZ', 'company']]],
+    ['Bilbao', [['BAT, Gran Vía 1', 'company'], ['Europe’s sustainability lab, 2025', 's-corriere']]],
+    ['BIND', [['BIND 4.0, winner', 'recognition'], ['trusted by', 'company']]],
+    ['Bizkaia', [['prepares for a changing climate, 2025', 's-euronews'], ['BEAZ', 'company']]],
+    ['Cities', [['EVE', 'd-eve']]],
+    ['Corriere della Sera', [['Bilbao, Europe’s sustainability lab.', 's-corriere']]],
+    ['Deploy', [['A new capability inside your operation.', 'w-deploy'], ['Build with Woza', 'mailto:hello@wozalabs.com?subject=Build%20with%20Woza']]],
+    ['DigitalOcean', [['trusted by', 'company']]],
+    ['Donostia–San Sebastián', [['Parke Mikeletegi 53', 'company']]],
+    ['E.DSO', [['Predicterra and UFD, ahead of the storm.', 's-edso']]],
+    ['Emissions', [['A city that can steer its emissions.', 'd-eve']]],
+    ['Energy', [['Iberdrola', 'd-iberdrola'], ['UFD', 'd-ufd'], ['Moeve', 'd-moeve'], ['EVE', 'd-eve'], ['Predicterra', 'v-predicterra']]],
+    ['ESA–NASA', [['AI foundation models for Earth observation.', 's-esa']]],
+    ['Euronews', [['Bizkaia prepares for a changing climate.', 's-euronews']]],
+    ['EVE, Ente Vasco de la Energía', [['A city that can steer its emissions.', 'd-eve']]],
+    ['Fernández, Mariana', [['Earth System Engineer', 'team']]],
+    ['Forecast', [['The field becomes the forecast.', 'd-agrology'], ['Zenith', 'e-zenith']]],
+    ['Forests', [['HAZI', 'd-hazi'], ['AboveForest', 'v-aboveforest'], ['ForestLayer', 'r-forestlayer'], ['Geo for Good, 2025', 's-google']]],
+    ['ForestLayer', [['A common language for forest systems.', 'r-forestlayer']]],
+    ['FUTURED', [['Spatial digital twins for vegetation risk in power grids, 2023', 'r-futured']]],
+    ['Gobe', [['trusted by', 'company']]],
+    ['Gómez, Unax', [['Design Engineer', 'team']]],
+    ['Google', [['Our forest digital twin at Geo for Good, 2025', 's-google'], ['Google Cloud Partner', 'company']]],
+    ['Grotto, Pablo', [['CTO', 'team']]],
+    ['Hasicic, Federico', [['CRSO', 'team']]],
+    ['HAZI', [['A forest inventory that never stands still.', 'd-hazi'], ['trusted by', 'company']]],
+    ['Hectareo', [['Land, production and risk. One operating system.', 'v-hectareo'], ['Hectareo-Agri 3.8B', 'r-hectareo-agri']]],
+    ['Iberdrola', [['The grid that sees the storm coming.', 'd-iberdrola'], ['Latitude Media, 2025', 's-latitude'], ['the PERSEO alliance, 2022', 's-iberdrola'], ['Perseo, winner', 'recognition']]],
+    ['ICEX', [['trusted by', 'company']]],
+    ['Investors', [['Request the investor deck', DECK]]],
+    ['Join the team', [['the few who want to build what comes next', 'team'], ['write to us', 'mailto:hello@wozalabs.com?subject=Join%20Woza']]],
+    ['Latitude Media', [['The intelligence behind Iberdrola’s grid.', 's-latitude']]],
+    ['Microsoft Partner', [['trusted by', 'company']]],
+    ['Moeve', [['The ground becomes the proof.', 'd-moeve'], ['Light Up, selected', 'recognition']]],
+    ['Mugarza, Ane', [['Earth System Engineer', 'team']]],
+    ['NDA', [['Some of our most advanced work remains under NDA.', 'deployed']]],
+    ['Nery, Federico', [['Earth System Engineer', 'team']]],
+    ['Orion', [['Connect the pieces.', 'e-orion']]],
+    ['Perseo', [['An alliance after the PERSEO challenge win, 2022', 's-iberdrola'], ['winner', 'recognition']]],
+    ['Predicterra', [['Intelligence for energy assets, risk and operations.', 'v-predicterra'], ['ahead of the storm, E.DSO 2026', 's-edso']]],
+    ['Priolo, Sebastian', [['Co-founder & CEO', 'team']]],
+    ['Research', [['Ahead of the ask.', 'research'], ['Request a research briefing', 'mailto:hello@wozalabs.com?subject=Woza%20research%20briefing'], ['Explore an R&D collaboration', 'mailto:hello@wozalabs.com?subject=Industrial%20R%26D%20collaboration']]],
+    ['Rosa, Asier', [['Earth System Engineer', 'team']]],
+    ['Santander X', [['trusted by', 'company']]],
+    ['SIMA Earth', [['The whole agricultural picture.', 'd-sima']]],
+    ['Storm', [['The grid that sees the storm coming.', 'd-iberdrola'], ['Predicterra and UFD, ahead of the storm, 2026', 's-edso']]],
+    ['Tadakuma, Fernando', [['Co-founder & CDO', 'team']]],
+    ['Tanielian, Martin', [['Earth System Engineer', 'team']]],
+    ['Technology briefing', [['Request a technology briefing', 'mailto:hello@wozalabs.com?subject=Woza%20technology%20briefing']]],
+    ['Territory', [['Azpilur', 'd-azpilur']]],
+    ['UFD, Grupo Naturgy', [['Every asset. Every risk. One network.', 'd-ufd'], ['ahead of the storm, E.DSO 2026', 's-edso']]],
+    ['Venture', [['A new company built on our technology.', 'w-venture'], ['three so far', 'ventures']]],
+    ['Zenith', [['Anticipate. Act.', 'e-zenith']]],
+  ];
+  const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const ix = $('#ix'), ixb = $('.ixb'), ixIn = $('input', ix), ixBody = $('.ix__body', ix), ixN = $('.ix__n', ix);
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  function renderIndex() {
+    const list = IX.slice().sort((a, b) => norm(a[0]).localeCompare(norm(b[0])));
+    let html = '', letter = '';
+    for (const [t, refs] of list) {
+      const L = norm(t)[0].toUpperCase();
+      if (L !== letter) { if (letter) html += '</section>'; letter = L; html += `<section class="ix__g"><h3 aria-hidden="true">${L}</h3>`; }
+      const q = norm(t + ' ' + refs.map(r => r[0]).join(' '));
+      html += `<p class="ix__e" data-q="${esc(q)}"><span class="t">${esc(t)}</span><span class="r">, ${refs.map(([l, h]) => `<a href="${h.startsWith('mailto:') ? h : '#' + h}">${esc(l.replace(/\.$/, ''))}</a>`).join(', ')}</span></p>`;
+    }
+    ixBody.innerHTML = html + '</section><p class="ix__none" hidden></p>';
+    ixN.textContent = `${list.length} subjects`;
+  }
+  function filterIndex() {
+    const q = norm(ixIn.value.trim()); let shown = 0;
+    $$('.ix__g', ixBody).forEach(g => { let any = false; $$('.ix__e', g).forEach(e => { const ok = !q || e.dataset.q.includes(q); e.hidden = !ok; if (ok) { any = true; shown++; } }); g.hidden = !any; });
+    const none = $('.ix__none', ixBody); none.hidden = shown > 0; none.textContent = shown ? '' : `No subject matches “${ixIn.value.trim()}”.`;
+    ixN.textContent = q ? `${shown} of ${IX.length}` : `${IX.length} subjects`;
+  }
+  let lastFocus = null;
+  const sheetEl = $('.sheet'), footEl = $('.foot');
+  function openIx(byKey) {
+    if (ix.classList.contains('open')) return;
+    lastFocus = document.activeElement;
+    ix.classList.toggle('instant', !!byKey);                               // a key is pressed often: no motion for it
+    ix.classList.add('open'); ixb.setAttribute('aria-expanded', 'true');
+    sheetEl.inert = true; footEl.inert = true;
+    if (fine || byKey) ixIn.focus({ preventScroll: true }); else $('.ix__x', ix).focus({ preventScroll: true });
+  }
+  function closeIx(restore = true) {
+    if (!ix.classList.contains('open')) return;
+    ix.classList.remove('open'); ixb.setAttribute('aria-expanded', 'false');
+    sheetEl.inert = false; footEl.inert = false;
+    if (restore && lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+  }
+  ixb.addEventListener('click', e => openIx(e.detail === 0));
+  ix.addEventListener('click', e => {
+    if (e.target.closest('[data-close]')) { closeIx(); return; }
+    const a = e.target.closest('.ix__e a'); if (!a) return;
+    const h = a.getAttribute('href'); if (!h.startsWith('#')) return;
+    e.preventDefault(); closeIx(false); go(h.slice(1));
+  });
+  ixIn.addEventListener('input', filterIndex);
+  ixIn.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const q = norm(ixIn.value.trim()), vis = $$('.ix__e:not([hidden])', ixBody);
+    const best = vis.find(x => norm($('.t', x).textContent).startsWith(q)) || vis[0];   // the subject itself before a mention of it
+    const a = best && $('a', best); if (a) a.click();
+  });
+  addEventListener('keydown', e => {
+    if (e.key === 'Escape' && ix.classList.contains('open')) { e.preventDefault(); closeIx(); return; }
+    const tgt = e.target, typing = tgt && (tgt.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tgt.tagName));
+    if (!typing && e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); openIx(true); }
+    if (e.key === 'Tab' && ix.classList.contains('open')) {                // keep the hand inside the sheet
+      const f = $$('input, button, a[href]', ix).filter(x => !x.closest('[hidden]') && x.offsetParent !== null), a = f[0], z = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
+    }
+  });
+
+  // ── Going somewhere: scroll there, and mark the cell once ──
+  let HEAD = 64, PIN = null;
+  function go(id) {
+    const el = document.getElementById(id); if (!el) return;
+    PIN = el.dataset.id ? { id: el.dataset.id, hit: false, t: performance.now() } : null;
+    const y = el.getBoundingClientRect().top + scrollY - HEAD + 1;
+    scrollTo({ top: Math.max(0, y), behavior: reduce ? 'auto' : 'smooth' });
+    const b = el.classList.contains('b') ? el : $('.b', el);
+    if (b) { b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 1500); }
+    history.replaceState(null, '', '#' + id);
+  }
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[href^="#"]'); if (!a || a.closest('.ix') || a.closest('.tree')) return;
+    const id = a.getAttribute('href').slice(1); if (!id || !document.getElementById(id)) return;
+    e.preventDefault(); go(id);
+  });
+
+  // ── The tree answers the hand ──
+  const preview = ids => { PRE = new Set(ids); applyTree(); };
+  tsvg.addEventListener('pointerdown', e => { const a = e.target.closest('a.hit'); if (a) preview([a.dataset.id]); });
+  tsvg.addEventListener('click', e => {
+    const a = e.target.closest('a.hit'); if (!a) return;
+    e.preventDefault(); const id = a.dataset.id;
+    if (ROOTS.includes(id)) { sapAt = 0; sap(ROOTS.indexOf(id)); }
+    go(TARGET[id]);
+    if (!fine) setTimeout(() => preview([]), 700);
+  });
+  if (fine) {
+    tsvg.addEventListener('pointerover', e => { const a = e.target.closest('a.hit'); if (a) preview([a.dataset.id]); });
+    tsvg.addEventListener('pointerout', e => { const a = e.target.closest('a.hit'); if (a && !a.contains(e.relatedTarget)) preview([]); });
+  }
+  tsvg.addEventListener('focusin', e => { const a = e.target.closest('a.hit'); if (a) preview([a.dataset.id]); });
+  tsvg.addEventListener('focusout', () => preview([]));
+  // and the page points back at the tree
+  if (fine) {
+    $$('.sector').forEach(el => { el.addEventListener('pointerenter', () => preview(SECTORS[el.dataset.sector])); el.addEventListener('pointerleave', () => preview([])); });
+    $$('.flow [data-id]').forEach(el => {
+      const id = el.dataset.id;
+      if (!GRAFTS.concat(FRUITS, ROOTS, NURSERY).includes(id)) return;
+      el.addEventListener('pointerenter', () => { preview([id]); if (ROOTS.includes(id)) sap(ROOTS.indexOf(id)); });
+      el.addEventListener('pointerleave', () => preview([]));
+    });
+  }
+
+  // ── Where the page is: a line a little above the middle of the window ──
+  const secs = $$('.sec[data-tree]');
+  function probe() {
+    const y = HEAD + (innerHeight - HEAD) * .38;
+    let sec = secs[0];
+    for (const s of secs) if (s.getBoundingClientRect().top <= y) sec = s;
+    const hits = [];
+    for (const el of $$('[data-id]', sec)) { const b = el.getBoundingClientRect(); if (b.top <= y && b.bottom > y) hits.push([el, b]); }
+    let item = null;
+    if (PIN) { const ph = hits.find(h => h[0].dataset.id === PIN.id); if (ph) { PIN.hit = true; item = PIN.id; } else if (PIN.hit || performance.now() - PIN.t > 2500) PIN = null; }
+    if (!item && hits.length) { const b = hits[0][1], k = Math.min(hits.length - 1, Math.floor((y - b.top) / b.height * hits.length)); item = hits[k][0].dataset.id; }  // a row of two is read left, then right
+    setState(sec.dataset.tree, item);
+  }
+
+  // ── Cells arrive once, drawn in from their top edge ──
+  let pending = [];
+  secs.forEach(s => $$('.b', s).forEach((b, i) => { b.style.setProperty('--d', Math.min(i % 4, 3) * 50 + 'ms'); pending.push(b); }));
+  function reveal() {
+    if (!pending.length) return;
+    const lim = innerHeight * .94;
+    pending = pending.filter(b => { if (b.getBoundingClientRect().top < lim) { b.classList.add('in'); return false; } return true; });
+  }
+
+  // ── One clock for the seams ──
+  let raf = 0, last = 0;
+  function frame(now) {
+    raf = 0; const dt = Math.min(40, last ? now - last : 16); last = now;
+    const vh = innerHeight; let moving = false;
+    for (const pl of plates) {
+      const b = pl.cv.getBoundingClientRect(); pl.vis = b.bottom > -40 && b.top < vh + 40;
+      if (!pl.vis) continue;
+      if (!pl.A) sizePlate(pl);
+      const c = (b.top + b.height / 2 - HEAD) / Math.max(1, vh - HEAD);
+      const along = .14 + .72 * Math.max(0, Math.min(1, c));                // low in the window: mostly as it looks; high: mostly the model
+      pl.tgt = pl.hover ?? (reduce ? .5 : along);
+      if (reduce) { pl.x = pl.tgt; pl.v = 0; }
+      else {                                                               // critically damped: no overshoot, about 0.3 s to settle
+        const k = 380, cd = 2 * Math.sqrt(k), s = dt / 1000;
+        pl.v += (-k * (pl.x - pl.tgt) - cd * pl.v) * s; pl.x += pl.v * s;
+        if (Math.abs(pl.x - pl.tgt) < .0006 && Math.abs(pl.v) < .003) { pl.x = pl.tgt; pl.v = 0; } else moving = true;
+      }
+      paintPlate(pl);
+    }
+    if (moving) play(); else last = 0;
+  }
+  function play() { if (!raf) raf = requestAnimationFrame(frame); }
+  let ticking = false;
+  function onScroll() { if (ticking) return; ticking = true; requestAnimationFrame(() => { ticking = false; probe(); reveal(); }); play(); }
+
+  // ── Sizes ──
+  let TW = 0, TH = 0;
+  function sizeTree() {
+    const w = Math.round(tree.clientWidth), h = Math.round(tree.clientHeight);
+    if (!w || !h || (w === TW && h === TH && T && T.dpr === DPR)) return;
+    TW = w; TH = h; T = growTree(w, h, SEED); T.dpr = DPR;
+    tcv.width = Math.round(w * DPR); tcv.height = Math.round(h * DPR);
+    drawTree(); buildSvg();
+  }
+  function measure() {
+    DPR = Math.min(2, Math.max(1, devicePixelRatio || 1));
+    HEAD = $('.top').offsetHeight; root.style.setProperty('--head', HEAD + 'px');
+    sizeTree();
+    plates.forEach(pl => { const w = Math.round(pl.cv.clientWidth), h = Math.round(pl.cv.clientHeight); if (w !== pl.w || h !== pl.h || pl.dpr !== DPR) { if (pl.vis) sizePlate(pl); else pl.A = null; } });
+    reveal(); probe(); play();
+  }
+  let rz = 0;
+  addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(measure, 120); });
+  addEventListener('scroll', onScroll, { passive: true });
+
+  { const v = $('.version'), c = $('[aria-current]', v); if (v.scrollWidth > v.clientWidth && c) v.scrollLeft = c.offsetLeft - v.clientWidth + c.offsetWidth + 8; }
+  readColours();
+  buildFigs();
+  renderIndex();
+  measure();
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('ready')));
+  if (location.hash && document.getElementById(location.hash.slice(1))) setTimeout(() => go(location.hash.slice(1)), 60);
+  document.fonts && document.fonts.ready.then(measure);
+  addEventListener('load', measure);
+  window.Graft = { state: () => S, tree: () => T, sap, go, openIx, closeIx };
+})();
+</script>
+</body>
+</html>

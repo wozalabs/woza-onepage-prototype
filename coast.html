@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="en" class="coast">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Woza Labs — Coast</title>
+<meta name="description" content="Woza Labs: the technologies behind the physical economy, measured along the coast of Bizkaia.">
+<meta name="theme-color" content="#0B0B0B">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20473%20474%22%3E%3Crect%20width%3D%22473%22%20height%3D%22474%22%20fill%3D%22%23EEE%22/%3E%3Cg%20transform%3D%22translate%280%2C474%29%20scale%280.1%2C-0.1%29%22%3E%3Cpath%20fill%3D%22%23111%22%20d%3D%22M2171%203828%20c6%20-24%2060%20-225%20120%20-448%20l109%20-405%20-78%20-77%20-77%20-77%20-99%2027%0Ac-54%2015%20-103%2034%20-107%2042%20-14%2025%20-240%20882%20-235%20888%208%207%20316%2090%20338%2091%2012%201%2021%0A-12%2029%20-41z%20m1389%20-523%20c0%20-5%20-221%20-230%20-490%20-500%20-270%20-269%20-490%20-493%20-490%0A-496%200%20-4%2081%20-308%20179%20-675%2099%20-368%20178%20-670%20176%20-672%20-6%20-7%20-340%20-92%20-348%0A-89%20-6%202%20-22%2048%20-37%20103%20-15%2054%20-82%20306%20-150%20559%20-68%20253%20-125%20462%20-127%20465%0A-2%202%20-192%20-184%20-421%20-413%20l-417%20-417%20-133%20132%20-132%20133%20417%20417%20c229%20229%20415%0A419%20413%20422%20-3%202%20-252%2070%20-555%20150%20-302%2081%20-557%20150%20-566%20154%20-14%206%20-11%2027%2031%0A182%2045%20166%2049%20175%2071%20172%2013%20-1%20318%20-82%20678%20-178%20l654%20-176%20496%20496%20496%20496%0A127%20-127%20c71%20-70%20128%20-132%20128%20-138z%20m-145%20-1021%20c242%20-65%20444%20-120%20448%20-124%0A7%20-6%20-76%20-346%20-86%20-357%20-3%20-2%20-900%20236%20-903%20240%20-1%201%20-14%2049%20-28%20106%20l-28%20104%0A73%2073%20c41%2041%2076%2074%2079%2074%203%200%20203%20-52%20445%20-116z%22/%3E%3C/g%3E%3C/svg%3E">
+<script>
+/* ─────────────────────────────────────────────────────────────
+   Palette: a new one on every load, verified before first paint.
+
+   Built in OKLCH, clamped to sRGB, then checked against WCAG:
+     ink        on canvas  ≥ 12:1   (body text, AAA with headroom)
+     secondary  on canvas  ≥ 7:1    (every small text step, AAA)
+     dim        on canvas  ≥ 4.5:1  (large display text only, AAA large)
+     accent     on canvas  ≥ 3:1    (non-text marks only: squares, ticks)
+   A candidate that misses any of these is thrown away.
+   ───────────────────────────────────────────────────────────── */
+(() => {
+  const srgb = v => v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+  function oklch(L, C, H) {
+    const h = H * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+    const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+    const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+    return [ 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s].map(srgb);
+  }
+  function toRgb(L, C, H) {
+    let c = C, v = oklch(L, c, H);
+    while (c > 0 && v.some(x => x < -0.0015 || x > 1.0015)) { c -= 0.004; v = oklch(L, c, H); }
+    return v.map(x => Math.max(0, Math.min(255, Math.round(x * 255))));
+  }
+  const lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const lum = p => 0.2126 * lin(p[0]) + 0.7152 * lin(p[1]) + 0.0722 * lin(p[2]);
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const over = (ink, cv, a) => ink.map((v, i) => Math.round(a * v + (1 - a) * cv[i]));
+  const hex = p => '#' + p.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  /* The window-light overlay sits over everything, text included. Light palettes get
+     its shadow (multiply, darkest spot ×0.849); dark palettes get its light (screen,
+     brightest pane +10%). Every ratio is taken on the plain page and under the overlay's
+     strongest spot, and the worse of the two must pass. */
+  const SHADE = 0.849, GLOW = 0.10;
+  // The grain moves any pixel by at most 3% (multiply on light, screen on dark); its
+  // extreme is stacked on the overlay's, so the worst case is checked, not the average.
+  const NOISE = 0.03;
+  const under = (p, dark) => dark ? p.map(v => Math.round(255 - (255 - v) * (1 - GLOW) * (1 - NOISE)))
+                                  : p.map(v => Math.round(v * SHADE * (1 - NOISE)));
+  // The number plane puts up to DIGIT_ALPHA of ink behind any text, so every ratio is also
+  // taken on that darker (light palettes) or lighter (dark palettes) ground.
+  const DIGIT_ALPHA = 0.14;
+  let INK = null;
+  const plain = (a, b, dark) => Math.min(ratio(a, b), ratio(under(a, dark), under(b, dark)));
+  const worst = (a, b, dark) => { const m = plain(a, b, dark); if (!INK) return m; const g = over(INK, b, DIGIT_ALPHA); return Math.min(m, plain(a, g, dark)); };
+  // Smallest opacity of ink over canvas that clears a target (with a margin for rounding).
+  const step = (ink, cv, target, dark) => {
+    for (let a = 0.2; a <= 1.0001; a += 0.01) if (worst(over(ink, cv, a), cv, dark) >= target + 0.05) return Math.ceil(a * 100) / 100;
+    return null;
+  };
+
+  function make() {
+    for (let t = 0; t < 400; t++) {
+      INK = null;
+      const hue = rnd(0, 360), dark = Math.random() < 0.55;
+      const canvas = toRgb(dark ? rnd(0.12, 0.2) : rnd(0.93, 0.975), rnd(0.004, 0.03), hue);
+      const inkH = (hue + rnd(-30, 30) + 360) % 360, inkC = rnd(0.01, 0.06);
+      let ink = null;
+      for (let L = dark ? 0.99 : 0.02; dark ? L > 0.5 : L < 0.55; L += dark ? -0.006 : 0.006) {
+        const c = toRgb(L, inkC, inkH);
+        if (worst(c, canvas, dark) >= 12) ink = c; else break;
+      }
+      if (!ink) continue;
+      INK = ink;
+      if (worst(ink, canvas, dark) < 7.05) { INK = null; continue; }   // body text on the digit ground: AAA
+      const secondary = step(ink, canvas, 7, dark), dim = step(ink, canvas, 4.5, dark);
+      if (secondary === null || dim === null) continue;
+      // Accent: a saturated, clearly different hue, used for marks only (never text).
+      const accH = (hue + rnd(120, 240)) % 360;
+      let accent = null;
+      for (let L = dark ? 0.62 : 0.72; dark ? L < 0.95 : L > 0.3; L += dark ? 0.01 : -0.01) {
+        const c = toRgb(L, 0.19, accH);
+        if (worst(c, canvas, dark) >= 3.2) { accent = c; break; }
+      }
+      if (!accent) { INK = null; continue; }
+      const res = { canvas: hex(canvas), ink: hex(ink), accent: hex(accent), secondary, dim, dark,
+               body: +worst(ink, canvas, dark).toFixed(2),
+               sub: +worst(over(ink, canvas, secondary), canvas, dark).toFixed(2),
+               large: +worst(over(ink, canvas, dim), canvas, dark).toFixed(2),
+               mark: +worst(accent, canvas, dark).toFixed(2) };
+      INK = null; return res;
+    }
+    return null;
+  }
+  // "/#" (the mark's link) opens the landing directly; anything else gets the arrival.
+  const skipArrival = /#$/.test(location.href);
+  document.documentElement.classList.add('js');
+
+  if (!skipArrival) document.documentElement.classList.add('intro');
+  // Desktop lands on the sheet alone; the content opens when a chapter is chosen.
+  const t = make(), r = document.documentElement;
+  if (t) {
+    r.style.setProperty('--canvas', t.canvas);
+    r.classList.toggle('is-dark', t.dark);
+    r.style.setProperty('--ink', t.ink);
+    r.style.setProperty('--accent', t.accent);
+    r.style.setProperty('--secondary', t.secondary);
+    r.style.setProperty('--dim', t.dim);
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', t.canvas);
+    // Favicon: the symbol on this load's canvas, the asterisk in its ink.
+    const ic = document.querySelector('link[rel="icon"]');
+    if (ic) ic.href = 'data:image/svg+xml,' + encodeURIComponent(decodeURIComponent(ic.href.slice(ic.href.indexOf(',') + 1)).replace('#EEE', t.canvas).replace('#111', t.ink));
+    console.info(`palette ${t.canvas} / ${t.ink} / ${t.accent} — body ${t.body}:1, small ${t.sub}:1, large ${t.large}:1, marks ${t.mark}:1`);
+  }
+  window.WozaPalette = { make, under, worst, DIGIT_ALPHA };
+})();
+</script>
+<link rel="preload" href="fonts/NeueMontreal-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Woza Labs — coast
+
+   One boundary, measured all the way down. The page is the coast
+   of Bizkaia, walked with a pair of dividers. Each section is a
+   ruler: the scroll halves it, and the measured length grows; then
+   it carries the eye down to the next scale, toward one point on
+   the shore, from the whole coast to a few centimetres of it, and
+   back out. The readout always says which ruler is in hand.
+   ───────────────────────────────────────────────────────────── */
+@font-face{
+  font-family:'Neue Montreal';
+  src:url('fonts/NeueMontreal-Regular.woff2') format('woff2');
+  font-weight:400; font-style:normal; font-display:swap;
+}
+:root{
+  --canvas:#0B0B0B;          /* fallback; a verified palette is applied before paint */
+  --ink:#ECECEC;
+  --accent:#F2B535;
+  --secondary:.86;
+  --dim:.62;
+  --ink-2:color-mix(in srgb, var(--ink) calc(var(--secondary) * 100%), var(--canvas));   /* small text: ≥7:1 */
+  --hair:color-mix(in srgb, var(--ink) 22%, transparent);
+  --m:clamp(20px,3.2vw,64px);
+  --pad:clamp(16px,1.6vw,32px);
+  --fs:clamp(13px,.94vw,18px);
+  --fl:clamp(24px,2.5vw,48px);
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  /* The bands that carry type. The drawing is held to the palette's verified strength
+     (DIGIT_ALPHA) inside them, so every line of text stays AAA. */
+  --tb:calc(var(--pad) + 44px);
+  --bb:calc(var(--m) + 200px);
+  font-family:'Neue Montreal','Helvetica Neue',Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;}
+html{background:var(--canvas);scroll-behavior:smooth;font-synthesis:none;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{margin:0;color:var(--ink);font-size:var(--fs);line-height:1.3;letter-spacing:0;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+::selection{background:var(--ink);color:var(--canvas);}
+a{color:inherit;text-decoration:none;}
+a:hover{text-decoration:underline;text-underline-offset:.18em;text-decoration-thickness:1px;}
+:focus-visible{outline:1px solid var(--accent);outline-offset:4px;}
+p,h1,h2,ol,dl,dd{margin:0;padding:0;}
+h1,h2,dt{font-weight:400;}
+ol{list-style:none;}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;}
+.probe{position:fixed;left:0;top:0;width:0;visibility:hidden;pointer-events:none;}
+
+/* ── The chart ─────────────────────────────────────────────── */
+.stage{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity 1200ms ease;
+  -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.14) var(--tb), #000 calc(var(--tb) + 60px), #000 calc(100% - var(--bb) - 60px), rgba(0,0,0,.14) calc(100% - var(--bb)));
+          mask-image:linear-gradient(to bottom, rgba(0,0,0,.14) var(--tb), #000 calc(var(--tb) + 60px), #000 calc(100% - var(--bb) - 60px), rgba(0,0,0,.14) calc(100% - var(--bb)));}
+.stage.is-on{opacity:1;}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+@media (prefers-contrast:more){.stage{opacity:.35 !important;}}
+
+/* ── Head of the sheet ─────────────────────────────────────── */
+.top{position:fixed;z-index:10;top:0;left:0;right:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:start;
+  padding:var(--pad) var(--m) 0;}
+.mark{display:block;width:clamp(112px,9vw,172px);color:var(--ink);}
+.mark svg{display:block;width:100%;height:auto;}
+.mark__ast{fill:var(--canvas);}
+.version{display:flex;gap:1em;align-items:baseline;line-height:1;color:var(--ink-2);padding-top:.2em;}
+.version a{color:var(--ink-2);transition:color 200ms ease;}
+.version a:hover{color:var(--ink);text-decoration:none;}
+.version a[aria-current="page"]{color:var(--ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+.tool{justify-self:end;display:flex;gap:1.4em;line-height:1;padding-top:.2em;}
+.tool button{color:var(--ink-2);transition:color 200ms ease, transform 160ms var(--ease-out);padding:.5em 0;margin:-.5em 0;}
+.tool button:hover,.tool button[aria-expanded="true"]{color:var(--ink);}
+.tool button:active{transform:scale(.97);}
+
+/* ── Captions: one per section, lower left ─────────────────── */
+.track{position:relative;z-index:1;}
+.st{height:120vh;}
+.st:last-child{height:100vh;}
+.cap{position:fixed;left:var(--m);bottom:var(--m);width:min(30em,calc(100vw - 2 * var(--m) - 19em));
+  display:grid;gap:.9em;opacity:0;transform:translateY(10px);pointer-events:none;
+  transition:opacity 260ms ease, transform 260ms ease;}
+.st.is-current .cap{opacity:1;transform:none;pointer-events:auto;
+  transition:opacity 700ms ease 120ms, transform 900ms var(--ease-out) 120ms;}
+.cap__k{display:flex;gap:.8em;color:var(--ink-2);}
+.cap__t{font-size:var(--fl);line-height:1.04;max-width:16em;text-wrap:balance;}
+.cap__d{color:var(--ink-2);max-width:30em;text-wrap:pretty;}
+.cap__links{display:flex;flex-wrap:wrap;gap:.4em 1.6em;margin-top:.3em;}
+.cap__links a{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+.cap__links a.quiet{color:var(--ink-2);}
+
+/* ── The readout: the measurement in hand, lower right ─────── */
+.ro{position:fixed;z-index:2;right:var(--m);bottom:var(--m);width:17em;display:grid;gap:.9em;}
+.ro dl{display:grid;grid-template-columns:auto 1fr;gap:.18em 1.2em;}
+.ro dt{color:var(--ink-2);}
+.ro dd{text-align:right;white-space:nowrap;}
+/* the cut has no tabular figures, so each digit gets a fixed cell and the values never shuffle */
+.ro dd i,.lad i{display:inline-block;width:.6em;text-align:center;font-style:normal;}
+.ro dd:empty::before{content:"\00a0";}
+.sb{display:grid;grid-template-columns:auto 1fr;align-items:end;gap:0 .7em;color:var(--ink-2);}
+.sb__bar{position:relative;height:7px;border-left:1px solid var(--ink);border-right:1px solid var(--ink);justify-self:end;
+  background:linear-gradient(var(--ink),var(--ink)) bottom / 100% 1px no-repeat;}
+.sb__bar::after{content:"";position:absolute;left:50%;bottom:0;height:4px;border-left:1px solid var(--ink);}
+.sb__l{text-align:right;}
+.ro__src{color:var(--ink-2);text-align:right;}
+
+/* ── The ladder: where this ruler sits among all of them ───── */
+.lad{position:relative;height:2.6em;}
+.lad::before{content:"";position:absolute;left:0;right:0;top:4px;border-top:1px solid var(--hair);}
+.lad__r{position:absolute;top:0;white-space:nowrap;color:var(--ink-2);transform:translateX(-50%);padding-top:13px;}
+.lad__r::before{content:"";position:absolute;left:50%;top:0;height:9px;border-left:1px solid var(--ink-2);}
+.lad__m{position:absolute;left:0;top:0;width:9px;height:9px;margin-left:-4.5px;background:var(--accent);will-change:transform;}
+
+/* ── Export ────────────────────────────────────────────────── */
+.exp{position:fixed;z-index:30;top:calc(var(--pad) + 2.2em);right:var(--m);width:min(23em,calc(100vw - 2 * var(--m)));
+  display:grid;gap:1.1em;padding:1.3em 1.4em 1.4em;background:var(--canvas);border:1px solid var(--hair);
+  transform-origin:100% 0;opacity:0;transform:scale(.97) translateY(-4px);visibility:hidden;
+  transition:opacity 150ms ease, transform 150ms ease, visibility 0s linear 150ms;}
+.exp[data-open]{opacity:1;transform:none;visibility:visible;
+  transition:opacity 200ms var(--ease-out), transform 200ms var(--ease-out), visibility 0s;}
+.exp fieldset{border:0;margin:0;padding:0;display:grid;grid-template-columns:5.2em 1fr;gap:.2em .8em;}
+.exp legend{float:left;padding:0;color:var(--ink-2);padding-top:.35em;}
+.opt{display:flex;flex-wrap:wrap;gap:0 1em;}
+.opt label{position:relative;cursor:pointer;padding:.35em 0;}
+.opt input{position:absolute;opacity:0;width:1px;height:1px;margin:0;}
+.opt span{color:var(--ink-2);transition:color 200ms ease;}
+.opt label:hover span{color:var(--ink);}
+.opt input:checked + span{color:var(--ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+.opt input:focus-visible + span{outline:1px solid var(--accent);outline-offset:3px;}
+.exp__go{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--hair);padding-top:1em;}
+.exp__go button{padding:.4em 0;transition:color 200ms ease, transform 160ms var(--ease-out);}
+.exp__go button:active{transform:scale(.97);}
+.exp__go .quiet{color:var(--ink-2);}
+.exp__go .quiet:hover{color:var(--ink);}
+.exp__go .do{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+.exp__go button:disabled{color:var(--ink-2);cursor:progress;}
+.exp__note{color:var(--ink-2);}
+
+/* ── Arrival ───────────────────────────────────────────────── */
+.js .top > *,.js .ro{opacity:0;transition:opacity 900ms ease;}
+.js.ready .top > *,.js.ready .ro{opacity:1;}
+.js .top > :nth-child(2){transition-delay:80ms;}
+.js .top > :nth-child(3),.js .ro{transition-delay:160ms;}
+.js:not(.ready) .cap{opacity:0 !important;}
+
+@media (max-width:900px), (orientation:portrait){
+  :root{--tb:calc(var(--pad) + 150px);--bb:calc(var(--m) + 210px);}
+  .top{grid-template-columns:1fr auto;}
+  .version{grid-column:1 / -1;grid-row:2;padding-top:1em;}
+  .cap{width:calc(100vw - 2 * var(--m));}
+  .ro{top:calc(var(--pad) + 4.4em);bottom:auto;width:auto;left:var(--m);}
+  .ro dl{grid-template-columns:repeat(3,auto);grid-auto-flow:column;grid-template-rows:auto auto;justify-content:start;gap:0 1.6em;}
+  .ro dd{text-align:left;}
+  .ro .x-wide,.sb,.ro__src,.lad{display:none;}
+}
+@media (prefers-reduced-motion:reduce){
+  .cap,.st.is-current .cap,.exp,.exp[data-open]{transform:none !important;}
+}
+</style>
+</head>
+<body>
+<div class="stage" aria-hidden="true"><canvas></canvas></div>
+<i class="probe probe-t" style="height:var(--tb)"></i><i class="probe probe-b" style="height:var(--bb)"></i>
+
+<header class="top">
+  <a class="mark" href="#coast" aria-label="Woza Labs, back to the start"><svg viewBox="0 0 3584 537" fill="currentColor" aria-hidden="true"><g transform="translate(0,537) scale(0.1,-0.1)"><path d="M35012 5350 c-228 -61 -407 -244 -467 -475 -19 -76 -19 -231 0 -314
+25 -105 89 -216 176 -302 62 -63 93 -85 170 -122 52 -25 118 -50 147 -56 76
+-16 238 -14 307 4 195 50 381 214 449 398 50 132 56 270 20 412 -51 196 -219
+371 -431 446 -87 31 -273 36 -371 9z m281 -145 c92 -19 160 -58 238 -135 102
+-100 149 -212 149 -349 0 -42 -6 -99 -14 -127 -45 -168 -192 -315 -361 -359
+-310 -80 -625 165 -625 485 0 223 159 424 383 485 68 18 146 18 230 0z"/><path d="M34950 4720 l0 -300 65 0 64 0 3 103 3 102 65 0 65 0 53 -102 53
+-103 73 0 74 0 -60 116 -60 116 35 36 c44 45 57 78 57 142 0 86 -32 137 -105
+171 -34 16 -66 19 -212 19 l-173 0 0 -300z m307 190 c53 -32 57 -114 7 -161
+-22 -21 -35 -24 -102 -24 l-77 0 -3 89 c-2 49 -1 95 2 103 9 22 134 17 173 -7z"/><path d="M22780 3000 l0 -2350 305 0 305 0 0 2350 0 2350 -305 0 -305 0 0
+-2350z"/><path d="M27820 3000 l0 -2350 235 0 235 0 0 230 0 231 46 -58 c231 -291 651
+-443 1226 -443 492 0 827 116 1089 379 300 300 441 737 443 1376 1 351 -32
+597 -114 846 -145 443 -379 696 -760 823 -199 66 -359 89 -630 89 -217 0 -339
+-12 -510 -50 -253 -56 -407 -134 -567 -287 l-83 -79 0 822 0 821 -305 0 -305
+0 0 -2350z m1935 555 c221 -39 365 -109 470 -227 100 -114 191 -352 227 -595
+20 -138 17 -599 -5 -741 -67 -427 -207 -655 -465 -761 -156 -64 -289 -85 -527
+-84 -363 1 -594 72 -756 233 -64 63 -84 92 -127 180 -105 216 -152 472 -152
+825 0 412 67 701 211 905 102 146 320 249 586 279 123 14 429 6 538 -14z"/><rect width="4730" height="4740" fill="currentColor"/><path class="mark__ast" d="M2171 3828 c6 -24 60 -225 120 -448 l109 -405 -78 -77 -77 -77 -99 27
+c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21
+-12 29 -41z m1389 -523 c0 -5 -221 -230 -490 -500 -270 -269 -490 -493 -490
+-496 0 -4 81 -308 179 -675 99 -368 178 -670 176 -672 -6 -7 -340 -92 -348
+-89 -6 2 -22 48 -37 103 -15 54 -82 306 -150 559 -68 253 -125 462 -127 465
+-2 2 -192 -184 -421 -413 l-417 -417 -133 132 -132 133 417 417 c229 229 415
+419 413 422 -3 2 -252 70 -555 150 -302 81 -557 150 -566 154 -14 6 -11 27 31
+182 45 166 49 175 71 172 13 -1 318 -82 678 -178 l654 -176 496 496 496 496
+127 -127 c71 -70 128 -132 128 -138z m-145 -1021 c242 -65 444 -120 448 -124
+7 -6 -76 -346 -86 -357 -3 -2 -900 236 -903 240 -1 1 -14 49 -28 106 l-28 104
+73 73 c41 41 76 74 79 74 3 0 203 -52 445 -116z"/><path d="M12565 4124 c-389 -30 -650 -109 -891 -270 -241 -161 -454 -491 -544
+-844 -96 -374 -99 -886 -8 -1275 130 -561 470 -919 1003 -1058 191 -50 298
+-62 575 -62 280 0 379 11 587 65 508 131 844 470 988 996 97 353 111 798 39
+1194 -61 334 -218 656 -414 850 -214 213 -510 343 -887 389 -93 12 -372 21
+-448 15z m320 -554 c360 -40 561 -168 696 -445 106 -217 139 -374 146 -691 7
+-302 -16 -489 -86 -696 -129 -382 -364 -553 -812 -589 -340 -28 -638 46 -818
+204 -94 82 -186 229 -244 394 -110 307 -112 866 -5 1203 128 400 346 572 793
+624 67 7 245 5 330 -4z"/><path d="M19149 4120 c-462 -26 -793 -147 -1000 -368 -195 -208 -295 -441
+-306 -719 l-6 -133 305 0 305 0 6 104 c10 175 71 315 176 407 25 22 87 60 136
+84 156 78 309 105 592 105 376 0 619 -65 753 -200 68 -70 129 -187 159 -305
+21 -82 45 -264 37 -272 -3 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983 -140
+-549 -128 -819 -334 -916 -699 -29 -107 -26 -418 4 -530 90 -331 332 -559 726
+-684 187 -60 301 -74 581 -75 219 -1 266 2 379 23 414 74 743 248 949 501 l37
+45 0 -267 0 -268 240 0 240 0 0 1043 c0 1068 -4 1226 -40 1440 -70 421 -286
+714 -631 855 -249 102 -693 155 -1110 132z m1161 -1932 c-1 -414 -128 -676
+-420 -867 -193 -127 -428 -191 -700 -191 -300 0 -539 71 -669 198 -93 92 -131
+187 -131 333 0 115 25 184 92 255 87 92 253 159 528 214 153 30 1189 177 1263
+179 l37 1 0 -122z"/><path d="M25369 4120 c-342 -19 -633 -97 -824 -221 -134 -87 -264 -229 -350
+-384 -82 -146 -135 -354 -135 -527 l0 -88 303 0 304 0 6 103 c15 243 109 394
+309 491 161 79 313 106 595 106 278 0 498 -39 638 -113 169 -90 271 -277 305
+-561 6 -54 9 -100 6 -103 -2 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983
+-140 -538 -125 -799 -317 -906 -669 -26 -84 -28 -103 -28 -275 -1 -214 16
+-303 83 -444 50 -106 84 -154 167 -238 154 -156 387 -272 654 -327 310 -65
+722 -50 1020 35 286 83 556 244 707 423 l58 70 3 -265 2 -264 240 0 240 0 0
+1048 c0 641 -4 1101 -11 1187 -25 336 -86 542 -223 755 -154 238 -403 377
+-796 444 -192 33 -523 49 -751 36z m1161 -1928 c0 -390 -116 -652 -373 -841
+-184 -135 -411 -208 -682 -218 -467 -19 -778 125 -850 391 -24 89 -17 231 14
+303 63 143 242 234 596 304 149 29 1186 176 1258 178 l37 1 0 -118z"/><path d="M32865 4120 c-484 -27 -811 -140 -1029 -357 -116 -115 -185 -234
+-227 -388 -18 -66 -22 -108 -23 -240 -1 -186 11 -243 77 -370 74 -143 257
+-302 443 -386 161 -72 611 -186 1299 -329 173 -36 273 -68 365 -116 135 -70
+216 -153 241 -247 17 -64 6 -167 -25 -231 -35 -72 -137 -166 -228 -212 -156
+-79 -350 -108 -665 -101 -245 5 -343 19 -495 71 -119 41 -192 83 -276 161
+-127 117 -186 247 -198 439 l-7 106 -298 0 -299 0 0 -96 c0 -231 66 -459 187
+-641 50 -77 180 -212 262 -272 269 -199 666 -301 1176 -301 573 0 957 121
+1220 385 183 182 266 377 266 620 0 145 -20 239 -77 355 -39 79 -62 110 -133
+181 -138 138 -317 246 -537 322 -115 40 -427 114 -769 182 -258 52 -368 79
+-517 131 -207 72 -325 151 -374 250 -24 49 -26 63 -22 138 6 107 37 175 114
+245 137 126 355 181 709 181 189 0 300 -11 420 -41 319 -81 514 -313 515 -611
+l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
+-1349 365z"/><path d="M5713 4078 c7 -20 1058 -3359 1069 -3395 l9 -33 317 0 317 0 420
+1299 c231 715 421 1296 423 1293 2 -4 198 -587 435 -1297 l432 -1290 329 0
+330 0 553 1710 c304 941 553 1713 553 1718 0 4 -149 6 -332 5 l-332 -3 -395
+-1307 c-218 -719 -398 -1305 -400 -1302 -3 3 -202 591 -442 1307 l-436 1302
+-289 0 -288 0 -291 -885 c-159 -487 -350 -1069 -424 -1293 -73 -225 -137 -405
+-141 -400 -4 4 -165 564 -358 1243 -194 679 -359 1259 -367 1288 l-16 52 -340
+0 c-269 0 -340 -3 -336 -12z"/><path d="M14612 3823 l3 -268 983 -3 c540 -1 982 -4 982 -7 0 -3 -320 -391
+-712 -863 -392 -471 -753 -906 -803 -966 -49 -60 -174 -211 -277 -335 l-188
+-225 0 -253 0 -253 1420 0 1420 0 0 265 0 265 -1036 2 -1036 3 1006 1193 1006
+1193 0 259 0 260 -1385 0 -1385 0 2 -267z"/></g></svg></a>
+  <nav class="version" aria-label="Version"><span>Version</span><a href="index.html">Current</a><a href="walk.html">New</a><a href="nave.html">Nave</a><a href="coral.html">Reef</a><a href="coast.html" aria-current="page">Coast</a><a href="shore.html">Shore</a><a href="graft.html">Graft</a><a href="plain.html">Plain</a><a href="portico.html">Portico</a><a href="atrium.html">Atrium</a></nav>
+  <div class="tool"><button type="button" class="exp-btn" aria-expanded="false" aria-controls="export">Export</button></div>
+</header>
+
+<div class="exp" id="export" role="dialog" aria-label="Export a still" inert>
+  <fieldset><legend>Format</legend>
+    <div class="opt">
+      <label><input type="radio" name="fmt" value="deck" checked><span>Deck 16:9</span></label>
+      <label><input type="radio" name="fmt" value="page"><span>Page A4</span></label>
+      <label><input type="radio" name="fmt" value="square"><span>Square</span></label>
+    </div>
+  </fieldset>
+  <fieldset><legend>Ground</legend>
+    <div class="opt">
+      <label><input type="radio" name="bg" value="solid" checked><span>Solid</span></label>
+      <label><input type="radio" name="bg" value="none"><span>Transparent</span></label>
+    </div>
+  </fieldset>
+  <fieldset><legend>Ink</legend>
+    <div class="opt">
+      <label><input type="radio" name="ink" value="palette" checked><span>Palette</span></label>
+      <label><input type="radio" name="ink" value="black"><span>Black</span></label>
+      <label><input type="radio" name="ink" value="white"><span>White</span></label>
+    </div>
+  </fieldset>
+  <fieldset><legend>Readout</legend>
+    <div class="opt">
+      <label><input type="radio" name="ro" value="on" checked><span>Shown</span></label>
+      <label><input type="radio" name="ro" value="off"><span>Hidden</span></label>
+    </div>
+  </fieldset>
+  <p class="exp__note" aria-live="polite">3840 by 2160 pixels, PNG.</p>
+  <div class="exp__go"><button type="button" class="quiet reroll">New palette</button><button type="button" class="do">Download</button></div>
+</div>
+
+<main class="track">
+  <section class="st" id="coast" aria-labelledby="t0">
+    <div class="cap">
+      <p class="cap__k"><span>00</span><span>Thesis</span></p>
+      <h1 class="cap__t" id="t0">The next frontier of intelligence is physical.</h1>
+      <p class="cap__d">Woza brings applied science, ontology, AI and engineering together into proprietary technologies so that knowledge becomes something we can build with.</p>
+    </div>
+  </section>
+  <section class="st" id="ark" aria-labelledby="t1">
+    <div class="cap">
+      <p class="cap__k"><span>01</span><span>Ark</span></p>
+      <h2 class="cap__t" id="t1">Structure physical reality.</h2>
+    </div>
+  </section>
+  <section class="st" id="orion" aria-labelledby="t2">
+    <div class="cap">
+      <p class="cap__k"><span>02</span><span>Orion</span></p>
+      <h2 class="cap__t" id="t2">Connect science and intelligence.</h2>
+    </div>
+  </section>
+  <section class="st" id="zenith" aria-labelledby="t3">
+    <div class="cap">
+      <p class="cap__k"><span>03</span><span>Zenith</span></p>
+      <h2 class="cap__t" id="t3">Anticipate change.</h2>
+    </div>
+  </section>
+  <section class="st" id="atlas" aria-labelledby="t4">
+    <div class="cap">
+      <p class="cap__k"><span>04</span><span>Atlas</span></p>
+      <h2 class="cap__t" id="t4">Make intelligence operational.</h2>
+    </div>
+  </section>
+  <section class="st" id="whole" aria-labelledby="t5">
+    <div class="cap">
+      <p class="cap__k"><span>05</span><span>Technology</span></p>
+      <h2 class="cap__t" id="t5">Nothing starts from zero.</h2>
+      <p class="cap__d">Technology, human judgment and a shared engineering discipline, working as one.</p>
+      <p class="cap__links"><a href="mailto:hello@wozalabs.com?subject=Deploy%20with%20Woza">Deploy with us</a><a class="quiet" href="mailto:hello@wozalabs.com?subject=Investor%20deck%20request">Request the investor deck</a></p>
+    </div>
+  </section>
+</main>
+
+<aside class="ro" aria-label="Measurement">
+  <div class="lad" aria-hidden="true"></div>
+  <dl>
+    <dt>Ruler</dt><dd data-k="ruler"></dd>
+    <dt>Segments</dt><dd data-k="seg"></dd>
+    <dt>Length</dt><dd data-k="len"></dd>
+    <dt class="x-wide">Scale</dt><dd class="x-wide" data-k="scale"></dd>
+    <dt class="x-wide">Latitude</dt><dd class="x-wide" data-k="lat"></dd>
+    <dt class="x-wide">Longitude</dt><dd class="x-wide" data-k="lon"></dd>
+  </dl>
+  <div class="sb" aria-hidden="true"><span class="sb__l" data-k="bar"></span><span class="sb__bar"></span></div>
+  <p class="ro__src">Coastline: OpenStreetMap contributors</p>
+</aside>
+
+<script>
+/* ─────────────────────────────────────────────────────────────
+   The coast, measured.
+
+   The boundary is the real shoreline of Bizkaia, from OpenStreetMap, about 380 points
+   from Cantabria to Gipuzkoa, the ría running up to Bilbao. Below the resolution of that
+   record the shore is refined by midpoint displacement: every segment splits at its middle,
+   pushed aside by a fixed fraction of its length, so the edge is the same at every scale
+   and only ever gains vertices. A vertex, once placed, never moves. (Below the record the
+   detail is a model, the honest stand-in for the survey that would replace it.)
+
+   The measurement is the divider method: from the start of the stretch in view, step a
+   fixed opening along the shore, each step landing where the shore first crosses the
+   circle. The segments and the length in the readout are counted from those steps.
+
+   Each visit descends to a different point of the shore, chosen once on load.
+   ───────────────────────────────────────────────────────────── */
+(() => {
+  'use strict';
+  const root = document.documentElement;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const ready = () => root.classList.add('ready');
+  const stage = document.querySelector('.stage'), cv = stage.querySelector('canvas'), g0 = cv.getContext('2d');
+  const layer = document.createElement('canvas'), lg0 = layer.getContext('2d');
+
+  // ── The shore: local metres east and north of 43.35° N, 3° W ──
+  const RAW = [-49865,16689,197,-570,813,1435,1145,538,738,-150,-261,-276,185,-515,-434,-326,32,-851,-276,-295,-419,-875,73,-188,414,24,-67,-248,45,-138,428,-101,-9,-46,-121,-48,-186,-170,7,-336,58,-122,270,719,-442,120,74,232,-62,155,-454,118,593,723,215,1350,1645,818,342,-249,813,159,733,-580,51,-733,-136,177,-120,-40,294,-630,440,138,312,-340,918,435,480,-292,-336,-1331,784,-699,-250,91,-346,-369,-255,502,118,-459,-343,-38,437,0,-323,-129,53,-152,705,601,1382,-498,1307,-3,110,-432,624,-151,1112,-79,545,382,1173,-389,531,-912,42,-1230,-1026,-783,-958,245,18,-365,625,-1332,1117,-1081,684,-72,144,135,-151,30,-1,105,36,119,118,113,-132,-321,153,-42,282,-152,-287,559,266,150,-417,-149,297,207,422,-150,10,-355,530,-110,416,320,1458,-294,775,200,83,-421,781,-147,1440,493,512,-413,1066,739,-201,-1418,455,-390,655,95,110,659,539,8,1752,-709,2061,-29,858,-493,1504,-231,533,-290,-362,-542,148,-389,556,112,688,-583,-424,311,-298,-80,323,-676,197,214,-48,-501,369,206,985,-546,99,-918,663,285,299,-737,554,-273,333,237,788,-868,350,260,1058,-223,1218,411,274,-195,359,-626,-214,-304,854,-439,63,-445,246,-333,-674,-411,-321,-288,-27,-115,92,-265,-115,-166,-2,-92,254,-402,-188,1032,1019,714,-267,731,-704,748,700,410,258,1525,2035,1468,-1570,-1578,1119,102,-254,-234,347,-218,509,348,381,-35,-705,-320,481,-241,-79,-712,492,360,238,832,2130,-373,-338,19,29,-252,-1547,278,-157,-573,1990,-1236,465,673,-400,268,1094,-573,-42,-508,-695,-128,813,-134,-42,-266,-999,208,1203,-433,-169,-561,606,-313,39,30,-230,298,22,24,-97,176,17,24,1325,-1906,289,-77,99,338,-335,143,410,-164,1268,-634,70,-7,591,-447,-145,-453,896,-1666,-444,-911,-62,-711,324,-722,-212,-261,19,-171,411,-422,-388,461,206,353,-324,761,530,1541,83,-1288,549,-882,426,-341,901,192,-930,-99,-476,492,-335,1277,549,-1245,511,-282,-552,557,-819,2161,327,161,323,263,75,215,535,6,384,302,-930,-264,-730,-638,-619,2033,-2845,1188,-492,759,252,-198,-49,188,106,178,67,2,-162,-179,184,-60,407,1097,-356,261,-502,-19,355,-363,-745,219,405,22,-524,305,1050,-148,179,801,-847,731,328,396,-1654,1697,679,630,1999,392,1272,980,19,424,403,6,65,474,839,457,308,1049,838,236,556,-479,282,240,-61,-244,300,-275,-402,-280,-45,-160,512,-303,438,-980,-350,1045,-518,268,487,272,-323,459,335,86,-13,574,-627,56,95,560,-284,-114,795,1613,887,-208,1974,459,706,-164,-83,-434,211,-171,176,167,-181,-101,-38,52,-11,95,345,74,174,-290,92,345,1067,140,752,-140,370,-506,2995,91,430,340,1422,-440,989,1187,762,385,-89,373,726,-359,1322,583,667,765,424,-520,-90,-841,748,-1674,1443,-318,122,-642,789,197,-1128,-455,830,-2,45,258,986,-595,368,-1057,-273,-174,470,-765,1279,1641,1654,-279,921,708,759,-429,-85,-1062,1651,-1241,1273,361,920,-815,593,90,-123,-389,71,-150,613,595,1054,269,765,-1027,76,-676,714,-308,843,503,1030,-254,900,243,516,-1116,343,-42,-306,-275,289,-418,266,411,629,-100,355,-763,995,-671,955,-1636,310,167,1113,-498,762,159,1381,-905,-574,-46,203,-577,-833,96,-304,-266,1093,103,111,114,-81,168,59,202,94,103,515,-407,112,324,1260,-470,1179,-934,80,122,234,-1,-565,-643,1018,325,1221,-729,160,-467,889,510,1553,-753,1078,264,2055,-465,1356,626,507,-128,136,446,884,-68,102,240,161,127,-217,-352,-399,-380,-224,-347,911,-527,-13,-451,-296,-117,-488,-484,1,-238,266,-127,-223,365,720,330,134,799,-772,342,-101,100,55,189,362,-130,-272,278,395,383,80,200,116,-280,411,179,106,523,882,275,1779,-759,455,855];
+  const LON0 = -3, LAT0 = 43.35, KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KY = 110574;
+  const BX = [], BY = [];
+  { let x = RAW[0], y = RAW[1]; BX.push(x); BY.push(y); for (let i = 2; i < RAW.length; i += 2) { x += RAW[i]; y += RAW[i + 1]; BX.push(x); BY.push(y); } }
+  const NB = BX.length, SOUTH = Math.min(...BY) - 400000;
+
+  // How far each segment may wander: never more than a small part of its distance to the
+  // rest of the shore, so the two banks of the ría never cross.
+  const ptSeg = (px, py, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy, t = l ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l)) : 0; return Math.hypot(px - ax - dx * t, py - ay - dy * t); };
+  const CAP = new Float64Array(NB - 1);
+  for (let i = 0; i < NB - 1; i++) {
+    let m = Infinity;
+    for (let j = 0; j < NB - 1; j++) {
+      if (Math.abs(i - j) <= 3) continue;
+      m = Math.min(m, ptSeg(BX[i], BY[i], BX[j], BY[j], BX[j + 1], BY[j + 1]), ptSeg(BX[i + 1], BY[i + 1], BX[j], BY[j], BX[j + 1], BY[j + 1]),
+                      ptSeg(BX[j], BY[j], BX[i], BY[i], BX[i + 1], BY[i + 1]), ptSeg(BX[j + 1], BY[j + 1], BX[i], BY[i], BX[i + 1], BY[i + 1]));
+    }
+    CAP[i] = .08 * m;
+  }
+
+  // ── Refinement ──
+  const ROUGH = .32;                                                      // displacement per split, as a share of the segment
+  const mix = h => { h ^= h >>> 16; h = Math.imul(h, 0x7feb352d); h ^= h >>> 15; h = Math.imul(h, 0x846ca68b); h ^= h >>> 16; return h >>> 0; };
+  const rnd = (i, d, idx) => mix(mix(mix(mix(Math.imul(i + 1, 0x9E3779B1) ^ 0x5bd1e995) ^ Math.imul(d + 7, 0x85EBCA77)) ^ (idx >>> 0)) ^ Math.floor(idx / 4294967296)) / 4294967296;
+  function split(ax, ay, bx, by, i, d, idx) {                             // the displaced middle of a segment
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1e-12, u = rnd(i, d, idx);
+    const A = Math.min(ROUGH * L, CAP[i]) * (u < .5 ? -1 : 1) * (.55 + .9 * Math.abs(u - .5));
+    return [(ax + bx) / 2 - dy / L * A, (ay + by) / 2 + dx / L * A];
+  }
+  let OUT, RX0, RY0, RX1, RY1, EPS;
+  function rec(ax, ay, bx, by, i, d, idx) {
+    const L = Math.hypot(bx - ax, by - ay), pad = .85 * L;
+    if (L <= EPS || d > 48 || Math.max(ax, bx) + pad < RX0 || Math.min(ax, bx) - pad > RX1 || Math.max(ay, by) + pad < RY0 || Math.min(ay, by) - pad > RY1) { OUT.push(bx, by); return; }
+    const m = split(ax, ay, bx, by, i, d, idx);
+    rec(ax, ay, m[0], m[1], i, d + 1, idx * 2);
+    rec(m[0], m[1], bx, by, i, d + 1, idx * 2 + 1);
+  }
+  // The shore in world metres, refined to eps inside the box and left coarse outside it.
+  function refine(x0, y0, x1, y1, eps) {
+    OUT = [BX[0], BY[0]]; RX0 = x0; RY0 = y0; RX1 = x1; RY1 = y1; EPS = eps;
+    for (let i = 0; i < NB - 1; i++) rec(BX[i], BY[i], BX[i + 1], BY[i + 1], i, 0, 0);
+    return OUT;
+  }
+  // The point the descent aims at: a vertex of the shore, deep enough to be on it at every scale.
+  function pickTarget() {
+    const ok = []; let tot = 0;
+    for (let i = 0; i < NB - 1; i++) if (BX[i] > -12500 && BX[i] < 46000) { const l = Math.hypot(BX[i + 1] - BX[i], BY[i + 1] - BY[i]); ok.push([i, l]); tot += l; }
+    let w = Math.random() * tot, i = ok[0][0];
+    for (const [j, l] of ok) { if ((w -= l) <= 0) { i = j; break; } }
+    let ax = BX[i], ay = BY[i], bx = BX[i + 1], by = BY[i + 1], d = 0, idx = 0, m = [ax, ay];
+    while (Math.hypot(bx - ax, by - ay) > 1.5e-5 && d < 48) {
+      m = split(ax, ay, bx, by, i, d, idx);
+      if (Math.random() < .5) { bx = m[0]; by = m[1]; idx = idx * 2; } else { ax = m[0]; ay = m[1]; idx = idx * 2 + 1; }
+      d++;
+    }
+    return m;
+  }
+
+  // ── The scale ladder: four views, each with its opening ruler (one third of the view) ──
+  const LV = [{ W: 100000, R: 40000 }, { W: 6000, R: 2000 }, { W: 60, R: 20 }, { W: .06, R: .02 }];
+  const C0 = [16000, 1500];                                               // the coast of Bizkaia, whole
+  const T = pickTarget();
+  let VW = 0, VH = 0, DPR = 1, TB = 60, BB = 240;
+  const fitW = () => Math.max(VW, 1000);
+  const ease = t => t * t * (3 - 2 * t);
+  const levelView = L => ({ cx: L ? T[0] : C0[0], cy: L ? T[1] : C0[1], mpp: LV[L].W / fitW() });
+  const at = (L, k) => ({ view: levelView(L), L, k, req: LV[L].R / 2 ** k });
+  function trans(a, b, p) {
+    if (reduce) return p < .5 ? at(a, 4) : at(b, 0);
+    const e = ease(p), Wv = LV[a].W * Math.pow(LV[b].W / LV[a].W, e);
+    let c = T;
+    // zoom about the target, drifting it to the centre on the way down (or out of it on the way up)
+    if (a === 0 || b === 0) { const f = (Wv / LV[0].W) * (a === 0 ? 1 - e : e); c = [T[0] + (C0[0] - T[0]) * f, T[1] + (C0[1] - T[1]) * f]; }
+    return { view: { cx: c[0], cy: c[1], mpp: Wv / fitW() }, L: -1, k: 0, req: Wv / 3 };
+  }
+  // Scroll position (in sections) to view and ruler.
+  function timeline(s) {
+    if (s < .6) return at(0, 0);
+    if (s < 1.5) return at(0, Math.min(4, 1 + Math.floor((s - .6) / .2)));
+    if (s < 4.5) {
+      const j = Math.min(2, Math.floor(s - 1.5)), u = s - 1.5 - j;
+      if (u < .4) return trans(j, j + 1, u / .4);
+      return at(j + 1, u < .5 ? 0 : Math.min(4, 1 + Math.floor((u - .5) / .12)));
+    }
+    const u = (s - 4.5) / .5;
+    if (u < .1) return at(3, 4);
+    if (u < .9) return trans(3, 0, (u - .1) / .8);
+    return at(0, 0);
+  }
+
+  // ── Measuring ──
+  const polyCache = new Map();
+  function windowRect() { return [VW * .06, TB + 40, VW * .94 - (VW > 900 ? 60 : 0), VH - BB - 30]; }
+  function levelPoly(L) {
+    const key = L + ':' + VW + 'x' + VH;
+    if (polyCache.has(key)) return polyCache.get(key);
+    const v = levelView(L), hw = VW / 2 * v.mpp, hh = VH / 2 * v.mpp;
+    const P = refine(v.cx - hw * 1.2, v.cy - hh * 1.2, v.cx + hw * 1.2, v.cy + hh * 1.2, v.mpp * .7).slice();
+    // The stretch: one unbroken piece of shore on screen (the one through the target below the
+    // first view, the longest one in it), measured between where it enters and leaves the window.
+    // A shore that leaves the screen and comes back is another stretch, not a detour to count.
+    const [x0, y0, x1, y1] = windowRect(), n = P.length / 2;
+    const scr = j => [(P[2 * j] - v.cx) / v.mpp + VW / 2, VH / 2 - (P[2 * j + 1] - v.cy) / v.mpp];
+    const inView = j => { const [a, b] = scr(j); return a >= -VW * .02 && a <= VW * 1.02 && b >= -VH * .02 && b <= VH * 1.02; };
+    const inWin = j => { const [a, b] = scr(j); return a >= x0 && a <= x1 && b >= y0 && b <= y1; };
+    let near = 0, nd = Infinity;
+    if (L) for (let j = 0; j < n; j++) { const d = Math.hypot(P[2 * j] - T[0], P[2 * j + 1] - T[1]); if (d < nd) { nd = d; near = j; } }
+    let best = null;
+    for (let j = 0; j < n;) {
+      if (!inView(j)) { j++; continue; }
+      let e = j; while (e + 1 < n && inView(e + 1)) e++;
+      const run = [j, e];
+      if (L ? near >= j && near <= e : !best || e - j > best[1] - best[0]) best = run;
+      j = e + 1;
+    }
+    let i0 = -1, i1 = -1;
+    if (best) for (let j = best[0]; j <= best[1]; j++) if (inWin(j)) { if (i0 < 0) i0 = j; i1 = j; }
+    const cum = new Float64Array(n);
+    for (let j = 1; j < n; j++) cum[j] = cum[j - 1] + Math.hypot(P[2 * j] - P[2 * j - 2], P[2 * j + 1] - P[2 * j - 1]);
+    const out = { P, cum, i0, i1 };
+    polyCache.set(key, out);
+    return out;
+  }
+  // The divider: each step lands where the shore first leaves a circle of the ruler's radius.
+  function divider(P, cum, i0, i1, r) {
+    let cx = P[2 * i0], cy = P[2 * i0 + 1], j = i0;
+    const X = [cx], Y = [cy], S = [cum[i0]], r2 = r * r;
+    for (;;) {
+      let hit = false;
+      for (let q = j; q < i1; q++) {
+        const bx = P[2 * q + 2], by = P[2 * q + 3];
+        if ((bx - cx) ** 2 + (by - cy) ** 2 < r2) continue;
+        const ax = q === j ? cx : P[2 * q], ay = q === j ? cy : P[2 * q + 1];
+        const dx = bx - ax, dy = by - ay, fx = ax - cx, fy = ay - cy, a = dx * dx + dy * dy, b = 2 * (fx * dx + fy * dy), c = fx * fx + fy * fy - r2;
+        const t = (-b + Math.sqrt(Math.max(0, b * b - 4 * a * c))) / (2 * a), nx = ax + dx * t, ny = ay + dy * t;
+        X.push(nx); Y.push(ny); S.push(cum[q] + Math.hypot(nx - P[2 * q], ny - P[2 * q + 1]));
+        cx = nx; cy = ny; j = q; hit = true; break;
+      }
+      if (!hit || X.length > 6000) break;
+    }
+    const ex = P[2 * i1], ey = P[2 * i1 + 1];
+    return { X, Y, S, n: X.length - 1, rem: Math.hypot(ex - cx, ey - cy), ex, ey, r };
+  }
+  function measure(L, k) {
+    const lp = levelPoly(L), r = LV[L].R / 2 ** k;
+    if (lp.i0 < 0 || lp.i1 <= lp.i0) return { X: [], Y: [], S: [], n: 0, rem: 0, ex: 0, ey: 0, r, L, k };
+    return Object.assign(divider(lp.P, lp.cum, lp.i0, lp.i1, r), { L, k });
+  }
+
+  // ── What is on screen: the measurement shown, and its transitions ──
+  // reveal: the dividers walking the line in (or back out); p: a ruler change, the old
+  // segments splitting into the new ones (or merging).
+  const D = { L: -1, k: 0, line: null, fromX: null, fromY: null, p: 1, reveal: 0, aim: 0, sigA: 0, sigB: 0 };
+  const sigmaOf = r => r / 5;                                             // samples: five to a ruler
+  function startPositions(line, oldX, oldY, oldS) {                       // each new vertex starts on the old line, at the same place along the shore
+    const fx = [], fy = [];
+    for (let j = 0; j < line.X.length; j++) {
+      const s = line.S[j]; let q = 0;
+      while (q < oldS.length - 2 && oldS[q + 1] < s) q++;
+      const s0 = oldS[q], s1 = oldS[q + 1] ?? s0, t = s1 > s0 ? Math.max(0, Math.min(1, (s - s0) / (s1 - s0))) : 0;
+      fx.push(oldX[q] + ((oldX[q + 1] ?? oldX[q]) - oldX[q]) * t); fy.push(oldY[q] + ((oldY[q + 1] ?? oldY[q]) - oldY[q]) * t);
+    }
+    return [fx, fy];
+  }
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+  function shownXY() {                                                    // vertex positions right now, mid-split included
+    const l = D.line; if (!l) return [[], []];
+    if (D.p >= 1 || !D.fromX) return [l.X, l.Y];
+    const e = easeOut(D.p);
+    return [l.X.map((x, j) => D.fromX[j] + (x - D.fromX[j]) * e), l.Y.map((y, j) => D.fromY[j] + (y - D.fromY[j]) * e)];
+  }
+  function updateMeasure(tl, dt) {
+    if (tl.L !== D.L) {
+      D.aim = 0;
+      if (D.reveal <= 0) {
+        D.L = tl.L; D.k = tl.k; D.p = 1; D.fromX = null;
+        D.line = tl.L >= 0 ? measure(tl.L, tl.k) : null;
+        D.sigA = D.sigB = D.line ? sigmaOf(D.line.r) : 0;
+      }
+    } else if (tl.L >= 0 && tl.k !== D.k) {
+      const [ox, oy] = shownXY(), os = D.line.S, nl = measure(tl.L, tl.k);
+      [D.fromX, D.fromY] = startPositions(nl, ox, oy, os);
+      D.sigA = D.p >= 1 ? D.sigB : Math.min(D.sigA, D.sigB);
+      D.sigB = sigmaOf(nl.r); D.line = nl; D.k = tl.k; D.p = reduce ? 1 : 0;
+    }
+    if (tl.L === D.L && D.L >= 0) D.aim = 1;
+    // the walk in is paced by the dividers: a step every 70 ms, the whole walk between 0.3 and 1 s; out is quick
+    const n = D.line ? Math.max(1, D.line.n) : 1;
+    if (reduce) D.reveal = D.aim;
+    else if (D.aim > D.reveal) D.reveal = Math.min(1, D.reveal + dt / Math.min(1000, Math.max(300, n * 70)));
+    else if (D.aim < D.reveal) D.reveal = Math.max(0, D.reveal - dt / 220);
+    if (D.p < 1) { D.p = Math.min(1, D.p + dt / 560); if (D.p >= 1) { D.fromX = null; D.sigA = D.sigB; } }
+  }
+
+  // ── Geometry on screen ──
+  function clipPolygon(pts, x0, y0, x1, y1) {                             // Sutherland–Hodgman, against a rectangle
+    const edges = [[0, x0, 1], [0, x1, -1], [1, y0, 1], [1, y1, -1]];
+    let poly = pts;
+    for (const [ax, v, sgn] of edges) {
+      const out = [], n = poly.length / 2; if (!n) break;
+      const inside = (i) => sgn * (poly[2 * i + ax] - v) >= 0;
+      for (let i = 0; i < n; i++) {
+        const j = (i + n - 1) % n, ci = inside(i), cj = inside(j);
+        if (ci !== cj) { const t = (v - poly[2 * j + ax]) / (poly[2 * i + ax] - poly[2 * j + ax]); out.push(poly[2 * j] + (poly[2 * i] - poly[2 * j]) * t, poly[2 * j + 1] + (poly[2 * i + 1] - poly[2 * j + 1]) * t); }
+        if (ci) out.push(poly[2 * i], poly[2 * i + 1]);
+      }
+      poly = out;
+    }
+    return poly;
+  }
+  function clipRuns(pts, x0, y0, x1, y1) {                                // a polyline, cut into the runs that cross a rectangle
+    const runs = []; let cur = null;
+    const n = pts.length / 2;
+    for (let i = 0; i < n - 1; i++) {
+      let ax = pts[2 * i], ay = pts[2 * i + 1], bx = pts[2 * i + 2], by = pts[2 * i + 3];
+      let t0 = 0, t1 = 1; const dx = bx - ax, dy = by - ay;
+      const p = [-dx, dx, -dy, dy], q = [ax - x0, x1 - ax, ay - y0, y1 - ay];
+      let ok = true;
+      for (let k = 0; k < 4; k++) {
+        if (p[k] === 0) { if (q[k] < 0) { ok = false; break; } }
+        else { const r = q[k] / p[k]; if (p[k] < 0) { if (r > t1) { ok = false; break; } if (r > t0) t0 = r; } else { if (r < t0) { ok = false; break; } if (r < t1) t1 = r; } }
+      }
+      if (!ok) { cur = null; continue; }
+      const sx = ax + dx * t0, sy = ay + dy * t0, ex = ax + dx * t1, ey = ay + dy * t1;
+      if (!cur || t0 > 0) { cur = [sx, sy]; runs.push(cur); }
+      cur.push(ex, ey);
+      if (t1 < 1) cur = null;
+    }
+    return runs;
+  }
+  const pathOf = (runs) => { const p = new Path2D(); for (const r of runs) { p.moveTo(r[0], r[1]); for (let i = 2; i < r.length; i += 2) p.lineTo(r[i], r[i + 1]); } return p; };
+  const thin = (runs, d) => runs.map(r => { const o = [r[0], r[1]]; let lx = r[0], ly = r[1]; for (let i = 2; i < r.length; i += 2) { if (Math.abs(r[i] - lx) + Math.abs(r[i + 1] - ly) >= d || i === r.length - 2) { o.push(r[i], r[i + 1]); lx = r[i]; ly = r[i + 1]; } } return o; });
+  const RINGS = [33, 23, 15, 9, 4];                                       // waterlines, in CSS pixels from the shore
+
+  // Draw the chart. g: a 2D context of pw x ph pixels; u: pixels per CSS pixel; v: the view.
+  // o: { ink, acc, lg (a layer context the same size), line, dots, cull: [x0, y0, x1, y1] in CSS px }
+  function drawChart(g, pw, ph, u, v, o) {
+    const w = pw / u, h = ph / u, mpp = v.mpp;
+    const sx = x => (x - v.cx) / mpp + w / 2, sy = y => h / 2 - (y - v.cy) / mpp;
+    const cull = o.cull || [-40, -40, w + 40, h + 40];
+    const P = refine(v.cx + (cull[0] - w / 2) * mpp, v.cy - (cull[3] - h / 2) * mpp, v.cx + (cull[2] - w / 2) * mpp, v.cy - (cull[1] - h / 2) * mpp, mpp * .9);
+    const n = P.length / 2, S = new Float64Array(P.length);
+    for (let i = 0; i < n; i++) { S[2 * i] = sx(P[2 * i]); S[2 * i + 1] = sy(P[2 * i + 1]); }
+    const bx0 = cull[0] - 40, by0 = cull[1] - 40, bx1 = cull[2] + 40, by1 = cull[3] + 40;
+    const runs = clipRuns(S, bx0, by0, bx1, by1);
+    const landPts = Array.from(S); landPts.push(sx(BX[NB - 1]), sy(SOUTH), sx(BX[0]), sy(SOUTH));
+    const land = clipPolygon(landPts, bx0, by0, bx1, by1);
+    const landPath = new Path2D(); for (let i = 0; i < land.length; i += 2) i ? landPath.lineTo(land[i], land[i + 1]) : landPath.moveTo(land[i], land[i + 1]); landPath.closePath();
+    const shore = pathOf(runs);
+    // 1. waterlines: the shore offset into the sea, as on an engraved chart
+    const lg = o.lg;
+    lg.setTransform(1, 0, 0, 1, 0, 0); lg.clearRect(0, 0, pw, ph); lg.setTransform(u, 0, 0, u, 0, 0);
+    lg.lineJoin = 'round'; lg.lineCap = 'round'; lg.strokeStyle = o.ink;
+    const soft = pathOf(thin(runs, 2.5));
+    for (const d of RINGS) {
+      lg.globalCompositeOperation = 'source-over'; lg.lineWidth = 2 * d + 1; lg.stroke(soft);
+      lg.globalCompositeOperation = 'destination-out'; lg.lineWidth = 2 * d - 1; lg.stroke(soft);
+    }
+    lg.globalCompositeOperation = 'destination-out'; lg.fill(landPath); lg.globalCompositeOperation = 'source-over';
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = .4; g.drawImage(lg.canvas, 0, 0); g.restore();
+    g.save(); g.setTransform(u, 0, 0, u, 0, 0);
+    // 2. samples on the land: a lattice tied to the ruler, five to a ruler; when the ruler halves,
+    // new samples grow in at the midpoints of the old ones
+    const ds = o.dots;
+    if (ds && ds.f > 0) {
+      const sf = Math.min(ds.a, ds.b), q = 2 / u, x0w = v.cx + (cull[0] - w / 2) * mpp, x1w = v.cx + (cull[2] - w / 2) * mpp, y0w = v.cy - (cull[3] - h / 2) * mpp, y1w = v.cy - (cull[1] - h / 2) * mpp;
+      const ia = Math.round(ds.a / sf), ib = Math.round(ds.b / sf);
+      const i0 = Math.ceil(x0w / sf), i1 = Math.floor(x1w / sf), j0 = Math.ceil(y0w / sf), j1 = Math.floor(y1w / sf);
+      if ((i1 - i0) * (j1 - j0) < 90000 && sf / mpp > 2.5) {
+        g.save(); g.clip(landPath); g.fillStyle = o.ink;
+        const full = 2 * ds.f;
+        for (let i = i0; i <= i1; i++) {
+          const X = sx(i * sf), ma = i % ia === 0, mb = i % ib === 0;
+          for (let j = j0; j <= j1; j++) {
+            const inA = ma && j % ia === 0, inB = mb && j % ib === 0;
+            const z = full * (inA && inB ? 1 : inB ? ds.p : inA ? 1 - ds.p : 0);
+            if (z < .15) continue;
+            const Y = sy(j * sf), zz = Math.max(q, Math.round(z * u) / u);
+            g.fillRect(Math.round((X - zz / 2) * u) / u, Math.round((Y - zz / 2) * u) / u, zz, zz);
+          }
+        }
+        g.restore();
+      }
+    }
+    // 3. the shore itself
+    g.lineJoin = 'round'; g.strokeStyle = o.ink; g.lineWidth = 1.1; g.stroke(shore);
+    // 4. the measured line: equal segments in the accent, the last part of the ruler dashed
+    const ln = o.line;
+    if (ln && ln.X.length > 1 && ln.reveal > 0) {
+      const N = ln.X.length - 1, upto = ln.reveal * N, full = Math.floor(upto);
+      g.strokeStyle = o.acc; g.fillStyle = o.acc; g.lineWidth = 1.5; g.lineJoin = 'miter';
+      g.beginPath(); g.moveTo(sx(ln.X[0]), sy(ln.Y[0]));
+      for (let j = 1; j <= full; j++) g.lineTo(sx(ln.X[j]), sy(ln.Y[j]));
+      if (full < N) { const t = upto - full; g.lineTo(sx(ln.X[full] + (ln.X[full + 1] - ln.X[full]) * t), sy(ln.Y[full] + (ln.Y[full + 1] - ln.Y[full]) * t)); }
+      g.stroke();
+      for (let j = 0; j <= full; j++) { const x = sx(ln.X[j]), y = sy(ln.Y[j]), z = j === 0 ? 6 : 4; g.fillRect(x - z / 2, y - z / 2, z, z); }
+      if (ln.reveal >= 1 && ln.rem > 0) {
+        g.setLineDash([2, 3]); g.lineWidth = 1.2; g.beginPath(); g.moveTo(sx(ln.X[N]), sy(ln.Y[N])); g.lineTo(sx(ln.ex), sy(ln.ey)); g.stroke(); g.setLineDash([]);
+        g.fillRect(sx(ln.ex) - 3, sy(ln.ey) - 3, 6, 6);
+      }
+    }
+    g.restore();
+    return { P, sx, sy };
+  }
+
+  // ── Palette ──
+  const COL = { ink: 'rgb(0,0,0)', acc: 'rgb(0,0,0)', cvs: 'rgb(255,255,255)' };
+  function colors() {
+    const p = document.createElement('i'); p.style.cssText = 'position:absolute;visibility:hidden'; document.body.appendChild(p);
+    const read = v => { p.style.color = v; return getComputedStyle(p).color; };
+    COL.ink = read('var(--ink)'); COL.acc = read('var(--accent)'); COL.cvs = read('var(--canvas)'); p.remove();
+    dirty = true; play();
+  }
+
+  // ── The readout ──
+  const RO = {}; document.querySelectorAll('[data-k]').forEach(e => RO[e.dataset.k] = e);
+  const lastRO = {};
+  const setRO = (k, s) => { if (lastRO[k] === s) return; lastRO[k] = s; RO[k].innerHTML = s.replace(/\d/g, '<i>$&</i>'); };
+  const unitOf = m => m >= 1000 ? ['km', 1000] : m >= 1 ? ['m', 1] : m >= .01 ? ['cm', .01] : ['mm', .001];
+  const decOf = x => { for (let d = 0; d < 7; d++) if (Math.abs(x * 10 ** d - Math.round(x * 10 ** d)) < 1e-7 * Math.max(1, x * 10 ** d)) return d; return 7; };
+  const num = (x, d) => { const [a, b] = x.toFixed(d).split('.'); return a.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (b ? '.' + b : ''); };
+  function readout(tl, v) {
+    const l = D.line, on = l && D.L >= 0 && D.reveal > 0;
+    if (on) {
+      const [un, uf] = unitOf(l.r), dec = decOf(l.r / uf), walked = Math.floor(D.reveal * l.n + 1e-9);
+      setRO('ruler', `${num(l.r / uf, dec)} ${un}`);
+      setRO('seg', num(walked, 0));
+      setRO('len', `${num((walked * l.r + (D.reveal >= 1 ? l.rem : 0)) / uf, dec)} ${un}`);
+    } else { setRO('ruler', ''); setRO('seg', ''); setRO('len', ''); }
+    const den = v.mpp / .00026458333;                                     // metres per CSS pixel, at 96 to the inch
+    if (den >= 1) { const p = 10 ** Math.max(0, Math.floor(Math.log10(den)) - 2); setRO('scale', `1:${num(Math.round(den / p) * p, 0)}`); }
+    else setRO('scale', `${num(1 / den, 1)}:1`);
+    const dp = Math.max(2, Math.min(8, Math.ceil(Math.log10(111320 / (v.mpp * 20)))));
+    const lat = LAT0 + v.cy / KY, lon = LON0 + v.cx / KX;
+    setRO('lat', `${num(Math.abs(lat), dp)}° ${lat >= 0 ? 'N' : 'S'}`);
+    setRO('lon', `${num(Math.abs(lon), dp)}° ${lon >= 0 ? 'E' : 'W'}`);
+    // a round length that fits in a short bar
+    const maxM = 110 * v.mpp, e10 = 10 ** Math.floor(Math.log10(maxM)), nice = [5, 2, 1].map(f => f * e10).find(x => x <= maxM);
+    const [bu, bf] = unitOf(nice); setRO('bar', `${num(nice / bf, decOf(nice / bf))} ${bu}`);
+    const bw = nice / v.mpp; if (Math.abs(bw - lastBar) > .3) { lastBar = bw; BAR.style.width = bw.toFixed(1) + 'px'; }
+    // the ladder marker
+    const y = ladY(tl.L >= 0 && D.line ? (D.line.r) : tl.req); if (Math.abs(y - lastLad) > .2) { lastLad = y; MK.style.transform = `translateX(${y.toFixed(1)}px)`; }
+  }
+  const BAR = document.querySelector('.sb__bar'); let lastBar = -1;
+  // the ladder: a log scale from 200 km down to under a millimetre, a rung at each view's opening ruler
+  const LAD = document.querySelector('.lad'), TOPLOG = 5.3, BOTLOG = -3.2;
+  LAD.innerHTML = LV.map(l => { const [un, uf] = unitOf(l.R); return `<span class="lad__r" data-r="${l.R}"><span>${num(l.R / uf, 0).replace(/\d/g, '<i>$&</i>')} ${un}</span></span>`; }).join('') + '<span class="lad__m"></span>';
+  const MK = LAD.querySelector('.lad__m'); let lastLad = -1;
+  const ladY = r => Math.max(0, Math.min(1, (TOPLOG - Math.log10(r)) / (TOPLOG - BOTLOG))) * LAD.clientWidth;
+  function placeLadder() { LAD.querySelectorAll('.lad__r').forEach(e => e.style.left = ladY(+e.dataset.r) + 'px'); lastLad = -1; }
+
+  // ── The lens: the shore under the pointer, measured at a finer ruler ──
+  // Not a magnifier: the scale stays, the resolution changes. Inside it the ruler is a
+  // quarter (or as fine as the screen can still show), and the samples are as many times denser.
+  const LP = { x: 0, y: 0, r: 0, aim: 0 };
+  const LOUPE_R = 92;
+  function drawLoupe(g, u, v) {
+    if (LP.r < 1 || !D.line) return;
+    const R = LP.r, rPx = D.line.r / v.mpp;
+    let f = 4; while (f > 1 && (rPx / f < 5 || sigmaOf(D.line.r / f) / v.mpp < 3)) f /= 2;
+    const r = D.line.r / f;
+    g.save(); g.setTransform(u, 0, 0, u, 0, 0);
+    g.beginPath(); g.arc(LP.x, LP.y, R, 0, Math.PI * 2); g.clip();
+    g.clearRect(LP.x - R - 2, LP.y - R - 2, 2 * R + 4, 2 * R + 4);
+    const res = drawChart(g, VW * u, VH * u, u, v, { ink: COL.ink, acc: COL.acc, lg: lg0, cull: [LP.x - R, LP.y - R, LP.x + R, LP.y + R],
+      dots: { a: sigmaOf(r), b: sigmaOf(r), p: 1, f: Math.min(1, R / LOUPE_R) }, line: null });
+    // the shore inside the lens, walked again with the finer ruler
+    const P = res.P, n = P.length / 2, inside = j => Math.hypot(res.sx(P[2 * j]) - LP.x, res.sy(P[2 * j + 1]) - LP.y) < R - 6;
+    let best = null;
+    for (let j = 0; j < n;) { if (!inside(j)) { j++; continue; } let e = j; while (e + 1 < n && inside(e + 1)) e++; if (!best || e - j > best[1] - best[0]) best = [j, e]; j = e + 1; }
+    if (best && best[1] > best[0] && f > 1) {
+      const cum = new Float64Array(n); for (let j = 1; j < n; j++) cum[j] = cum[j - 1] + Math.hypot(P[2 * j] - P[2 * j - 2], P[2 * j + 1] - P[2 * j - 1]);
+      const ln = divider(P, cum, best[0], best[1], r);
+      g.strokeStyle = COL.acc; g.fillStyle = COL.acc; g.lineWidth = 1.5;
+      g.beginPath(); ln.X.forEach((x, j) => j ? g.lineTo(res.sx(x), res.sy(ln.Y[j])) : g.moveTo(res.sx(x), res.sy(ln.Y[j]))); g.stroke();
+      ln.X.forEach((x, j) => g.fillRect(res.sx(x) - 2, res.sy(ln.Y[j]) - 2, 4, 4));
+    }
+    g.restore();
+    g.save(); g.setTransform(u, 0, 0, u, 0, 0);
+    g.strokeStyle = COL.ink; g.lineWidth = 1; g.beginPath(); g.arc(LP.x, LP.y, R, 0, Math.PI * 2); g.stroke();
+    if (f > 1 && R > LOUPE_R * .9) {                                      // the lens's own ruler, on a clear patch below it
+      const [un, uf] = unitOf(r), label = `${num(r / uf, decOf(r / uf))} ${un}`;
+      g.font = `400 ${parseFloat(getComputedStyle(document.body).fontSize)}px 'Neue Montreal', Helvetica, Arial, sans-serif`;
+      const tw = g.measureText(label).width, lx = LP.x - tw / 2, ly = LP.y + R + 10;
+      g.clearRect(lx - 4, ly - 2, tw + 8, 20); g.fillStyle = COL.ink; g.textBaseline = 'top'; g.fillText(label, lx, ly);
+    }
+    g.restore();
+  }
+
+  // ── Scroll, followed with a little weight ──
+  let secH = 1, sTgt = 0, sCam = 0;
+  const onScroll = () => { sTgt = Math.min(5, Math.max(0, scrollY / secH)); play(); };
+  addEventListener('scroll', onScroll, { passive: true });
+  let px = -1, py = -1, pOver = false;
+  if (fine) {
+    addEventListener('pointermove', e => { px = e.clientX; py = e.clientY; pOver = e.pointerType === 'mouse' && !e.target.closest('.top, .exp, .cap, .ro'); play(); }, { passive: true });
+    document.documentElement.addEventListener('pointerleave', () => { pOver = false; play(); });
+  }
+
+  function measureScreen() {
+    VW = innerWidth; VH = innerHeight; DPR = Math.min(2, Math.max(1, devicePixelRatio || 1));
+    cv.width = layer.width = Math.round(VW * DPR); cv.height = layer.height = Math.round(VH * DPR);
+    TB = document.querySelector('.probe-t').offsetHeight; BB = document.querySelector('.probe-b').offsetHeight;
+    secH = (document.querySelector('.st') || { offsetHeight: VH * 1.2 }).offsetHeight;
+    polyCache.clear(); placeLadder();
+    if (D.line) { D.line = measure(D.L, D.k); D.fromX = null; D.p = 1; }
+    dirty = true;
+  }
+
+  // ── The loop: draws while anything changes, rests when nothing does ──
+  let raf = 0, prevT = 0, dirty = true, shown = false, current = -1, busy = false, lastKey = '';
+  const secs = [...document.querySelectorAll('.st')];
+  function frame(now) {
+    raf = 0;
+    const dt = prevT ? Math.min(64, now - prevT) : 16; prevT = now;
+    sCam = reduce ? sTgt : sCam + (sTgt - sCam) * (1 - Math.exp(-dt / 1000 * 3.6));
+    if (Math.abs(sTgt - sCam) < 1e-4) sCam = sTgt;
+    const r = Math.min(secs.length - 1, Math.round(sCam));
+    if (r !== current) { current = r; secs.forEach((s, i) => s.classList.toggle('is-current', i === r)); }
+    const tl = timeline(sCam);
+    updateMeasure(tl, dt);
+    // the loupe follows the pointer with a short lag, and opens only while something is being measured
+    LP.aim = pOver && D.L >= 0 && D.reveal >= 1 && !panel.hasAttribute('data-open') ? 1 : 0;
+    if (LP.aim && LP.r < 1) { LP.x = px; LP.y = py; }
+    const k = reduce ? 1 : 1 - Math.exp(-dt / 55);
+    LP.x += (px - LP.x) * k; LP.y += (py - LP.y) * k;
+    const rt = LP.aim * LOUPE_R; LP.r += (rt - LP.r) * (reduce ? 1 : 1 - Math.exp(-dt / (rt > LP.r ? 60 : 40))); if (Math.abs(LP.r - rt) < .3) LP.r = rt;
+    const key = [tl.view.cx, tl.view.cy, tl.view.mpp, D.reveal, D.p, D.k, D.L, LP.x | 0, LP.y | 0, LP.r | 0, COL.ink, COL.acc].join();
+    if (!busy && (dirty || key !== lastKey)) {
+      dirty = false; lastKey = key;
+      g0.setTransform(1, 0, 0, 1, 0, 0); g0.clearRect(0, 0, cv.width, cv.height);
+      const [X, Y] = shownXY();
+      drawChart(g0, cv.width, cv.height, DPR, tl.view, { ink: COL.ink, acc: COL.acc, lg: lg0,
+        line: D.line ? { X, Y, ex: D.line.ex, ey: D.line.ey, rem: D.line.rem, reveal: D.reveal } : null,
+        dots: D.line ? { a: D.sigA, b: D.sigB, p: easeOut(D.p), f: Math.min(1, D.reveal * 1.6) } : null });
+      if (fine) drawLoupe(g0, DPR, tl.view);
+      readout(tl, tl.view);
+      if (!shown) { shown = true; requestAnimationFrame(() => { stage.classList.add('is-on'); setTimeout(ready, reduce ? 0 : 400); }); }
+    }
+    const moving = Math.abs(sTgt - sCam) > 1e-4 || D.reveal !== D.aim || D.p < 1 || Math.abs(LP.r - LP.aim * LOUPE_R) > .3
+      || (LP.r > 0 && (Math.abs(px - LP.x) > .3 || Math.abs(py - LP.y) > .3)) || D.L !== tl.L || (tl.L >= 0 && D.k !== tl.k);
+    if (moving && !document.hidden) raf = requestAnimationFrame(frame);
+  }
+  function play() { if (!raf) raf = requestAnimationFrame(frame); }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { prevT = 0; dirty = true; play(); } });
+  addEventListener('resize', () => { measureScreen(); onScroll(); play(); });
+  new MutationObserver(colors).observe(root, { attributes: true, attributeFilter: ['style', 'class'] });
+
+  // ── Export: the chart redrawn at print size, the readout set beside it ──
+  const FORMATS = { deck: [3840, 2160], page: [2480, 3508], square: [2400, 2400] };
+  const panel = document.getElementById('export'), btn = document.querySelector('.exp-btn');
+  const go = panel.querySelector('.do'), note = panel.querySelector('.exp__note');
+  const val = n => panel.querySelector(`input[name="${n}"]:checked`).value;
+  const setNote = () => { const f = FORMATS[val('fmt')]; note.textContent = `${f[0]} by ${f[1]} pixels, PNG${val('bg') === 'none' ? ' with a transparent ground' : ''}.`; };
+  function open(on) {
+    on ? panel.setAttribute('data-open', '') : panel.removeAttribute('data-open');
+    panel.inert = !on; btn.setAttribute('aria-expanded', on); setNote(); play();
+    if (on) panel.querySelector('input:checked').focus({ preventScroll: true }); else if (panel.contains(document.activeElement)) btn.focus({ preventScroll: true });
+  }
+  btn.addEventListener('click', () => open(!panel.hasAttribute('data-open')));
+  panel.addEventListener('change', setNote);
+  addEventListener('keydown', e => { if (e.key === 'Escape' && panel.hasAttribute('data-open')) open(false); });
+  addEventListener('pointerdown', e => { if (panel.hasAttribute('data-open') && !panel.contains(e.target) && !btn.contains(e.target)) open(false); });
+  panel.querySelector('.reroll').addEventListener('click', () => {
+    const t = window.WozaPalette && WozaPalette.make(); if (!t) return;
+    root.style.setProperty('--canvas', t.canvas); root.style.setProperty('--ink', t.ink); root.style.setProperty('--accent', t.accent);
+    root.style.setProperty('--secondary', t.secondary); root.style.setProperty('--dim', t.dim); root.classList.toggle('is-dark', t.dark);
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', t.canvas);
+  });
+  go.addEventListener('click', async () => {
+    const [ow, oh] = FORMATS[val('fmt')], inkSel = val('ink');
+    const ink = inkSel === 'black' ? '#000000' : inkSel === 'white' ? '#FFFFFF' : COL.ink;
+    const ground = inkSel === 'black' ? '#FFFFFF' : inkSel === 'white' ? '#000000' : COL.cvs;
+    go.disabled = true; go.textContent = 'Rendering';
+    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 30)));
+    busy = true;
+    try {
+      // the still keeps the screen's view: its shorter side spans what the screen's shorter side spans
+      const u = Math.min(ow, oh) / Math.min(VW, VH), tl = timeline(sCam), v = tl.view;
+      const c = document.createElement('canvas'); c.width = ow; c.height = oh; const g = c.getContext('2d');
+      const lc = document.createElement('canvas'); lc.width = ow; lc.height = oh;
+      if (val('bg') !== 'none') { g.fillStyle = ground; g.fillRect(0, 0, ow, oh); }
+      const [X, Y] = D.line ? [D.line.X, D.line.Y] : [[], []];
+      drawChart(g, ow, oh, u, v, { ink, acc: COL.acc, lg: lc.getContext('2d'),
+        line: D.line ? { X, Y, ex: D.line.ex, ey: D.line.ey, rem: D.line.rem, reveal: 1 } : null,
+        dots: D.line ? { a: D.sigB, b: D.sigB, p: 1, f: 1 } : null });
+      if (val('ro') === 'on') {
+        await document.fonts.ready;
+        const fs = 13 * u, lh = fs * 1.45, rows = [['Ruler', lastRO.ruler], ['Segments', lastRO.seg], ['Length', lastRO.len], ['Scale', lastRO.scale], ['Latitude', lastRO.lat], ['Longitude', lastRO.lon]].filter(r => r[1]);
+        g.font = `400 ${fs}px 'Neue Montreal', Helvetica, Arial, sans-serif`; g.textBaseline = 'alphabetic'; g.fillStyle = ink;
+        const x0 = 40 * u, colW = 120 * u, yb = oh - 40 * u;
+        rows.forEach(([k, val2], i) => { const y = yb - (rows.length - 1 - i) * lh; g.globalAlpha = .75; g.fillText(k, x0, y); g.globalAlpha = 1; g.fillText(val2, x0 + colW, y); });
+        g.fillText('Coastline: OpenStreetMap contributors', ow - 40 * u - g.measureText('Coastline: OpenStreetMap contributors').width, yb);
+      }
+      const name = `woza-coast-${D.line ? `${(lastRO.ruler || '').replace(/[^\w.]+/g, '')}` : 'transit'}-${val('fmt')}.png`;
+      await new Promise(r => c.toBlob(b => { const a = document.createElement('a'); a.download = name; a.href = URL.createObjectURL(b); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); r(); }, 'image/png'));
+    } finally { busy = false; dirty = true; go.disabled = false; go.textContent = 'Download'; play(); }
+  });
+
+  measureScreen(); colors(); onScroll(); sCam = sTgt;
+  document.fonts.ready.then(() => { measureScreen(); dirty = true; play(); });
+  play();
+})();
+</script>
+</body>
+</html>

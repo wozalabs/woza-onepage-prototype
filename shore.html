@@ -1,0 +1,952 @@
+<!doctype html>
+<html lang="en" class="shore">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Woza Labs — Shore</title>
+<meta name="description" content="Woza Labs builds the Engine and the engineering discipline that continuously expand how critical systems are built and operated.">
+<meta name="theme-color" content="#0B0B0B">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20473%20474%22%3E%3Crect%20width%3D%22473%22%20height%3D%22474%22%20fill%3D%22%23EEE%22/%3E%3Cg%20transform%3D%22translate%280%2C474%29%20scale%280.1%2C-0.1%29%22%3E%3Cpath%20fill%3D%22%23111%22%20d%3D%22M2171%203828%20c6%20-24%2060%20-225%20120%20-448%20l109%20-405%20-78%20-77%20-77%20-77%20-99%2027%0Ac-54%2015%20-103%2034%20-107%2042%20-14%2025%20-240%20882%20-235%20888%208%207%20316%2090%20338%2091%2012%201%2021%0A-12%2029%20-41z%20m1389%20-523%20c0%20-5%20-221%20-230%20-490%20-500%20-270%20-269%20-490%20-493%20-490%0A-496%200%20-4%2081%20-308%20179%20-675%2099%20-368%20178%20-670%20176%20-672%20-6%20-7%20-340%20-92%20-348%0A-89%20-6%202%20-22%2048%20-37%20103%20-15%2054%20-82%20306%20-150%20559%20-68%20253%20-125%20462%20-127%20465%0A-2%202%20-192%20-184%20-421%20-413%20l-417%20-417%20-133%20132%20-132%20133%20417%20417%20c229%20229%20415%0A419%20413%20422%20-3%202%20-252%2070%20-555%20150%20-302%2081%20-557%20150%20-566%20154%20-14%206%20-11%2027%2031%0A182%2045%20166%2049%20175%2071%20172%2013%20-1%20318%20-82%20678%20-178%20l654%20-176%20496%20496%20496%20496%0A127%20-127%20c71%20-70%20128%20-132%20128%20-138z%20m-145%20-1021%20c242%20-65%20444%20-120%20448%20-124%0A7%20-6%20-76%20-346%20-86%20-357%20-3%20-2%20-900%20236%20-903%20240%20-1%201%20-14%2049%20-28%20106%20l-28%20104%0A73%2073%20c41%2041%2076%2074%2079%2074%203%200%20203%20-52%20445%20-116z%22/%3E%3C/g%3E%3C/svg%3E">
+<script>
+/* ─────────────────────────────────────────────────────────────
+   Palette: a new one on every load, verified before first paint.
+
+   Built in OKLCH, clamped to sRGB, then checked against WCAG:
+     ink        on canvas  ≥ 12:1   (body text, AAA with headroom)
+     secondary  on canvas  ≥ 7:1    (every small text step, AAA)
+     dim        on canvas  ≥ 4.5:1  (large display text only, AAA large)
+     accent     on canvas  ≥ 3:1    (non-text marks only: squares, ticks)
+   A candidate that misses any of these is thrown away.
+   ───────────────────────────────────────────────────────────── */
+(() => {
+  const srgb = v => v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+  function oklch(L, C, H) {
+    const h = H * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+    const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+    const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+    return [ 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s].map(srgb);
+  }
+  function toRgb(L, C, H) {
+    let c = C, v = oklch(L, c, H);
+    while (c > 0 && v.some(x => x < -0.0015 || x > 1.0015)) { c -= 0.004; v = oklch(L, c, H); }
+    return v.map(x => Math.max(0, Math.min(255, Math.round(x * 255))));
+  }
+  const lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const lum = p => 0.2126 * lin(p[0]) + 0.7152 * lin(p[1]) + 0.0722 * lin(p[2]);
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const over = (ink, cv, a) => ink.map((v, i) => Math.round(a * v + (1 - a) * cv[i]));
+  const hex = p => '#' + p.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  /* The window-light overlay sits over everything, text included. Light palettes get
+     its shadow (multiply, darkest spot ×0.849); dark palettes get its light (screen,
+     brightest pane +10%). Every ratio is taken on the plain page and under the overlay's
+     strongest spot, and the worse of the two must pass. */
+  const SHADE = 0.849, GLOW = 0.10;
+  // The grain moves any pixel by at most 3% (multiply on light, screen on dark); its
+  // extreme is stacked on the overlay's, so the worst case is checked, not the average.
+  const NOISE = 0.03;
+  const under = (p, dark) => dark ? p.map(v => Math.round(255 - (255 - v) * (1 - GLOW) * (1 - NOISE)))
+                                  : p.map(v => Math.round(v * SHADE * (1 - NOISE)));
+  // The number plane puts up to DIGIT_ALPHA of ink behind any text, so every ratio is also
+  // taken on that darker (light palettes) or lighter (dark palettes) ground.
+  const DIGIT_ALPHA = 0.14;
+  let INK = null;
+  const plain = (a, b, dark) => Math.min(ratio(a, b), ratio(under(a, dark), under(b, dark)));
+  const worst = (a, b, dark) => { const m = plain(a, b, dark); if (!INK) return m; const g = over(INK, b, DIGIT_ALPHA); return Math.min(m, plain(a, g, dark)); };
+  // Smallest opacity of ink over canvas that clears a target (with a margin for rounding).
+  const step = (ink, cv, target, dark) => {
+    for (let a = 0.2; a <= 1.0001; a += 0.01) if (worst(over(ink, cv, a), cv, dark) >= target + 0.05) return Math.ceil(a * 100) / 100;
+    return null;
+  };
+
+  function make() {
+    for (let t = 0; t < 400; t++) {
+      INK = null;
+      const hue = rnd(0, 360), dark = Math.random() < 0.55;
+      const canvas = toRgb(dark ? rnd(0.12, 0.2) : rnd(0.93, 0.975), rnd(0.004, 0.03), hue);
+      const inkH = (hue + rnd(-30, 30) + 360) % 360, inkC = rnd(0.01, 0.06);
+      let ink = null;
+      for (let L = dark ? 0.99 : 0.02; dark ? L > 0.5 : L < 0.55; L += dark ? -0.006 : 0.006) {
+        const c = toRgb(L, inkC, inkH);
+        if (worst(c, canvas, dark) >= 12) ink = c; else break;
+      }
+      if (!ink) continue;
+      INK = ink;
+      if (worst(ink, canvas, dark) < 7.05) { INK = null; continue; }   // body text on the digit ground: AAA
+      const secondary = step(ink, canvas, 7, dark), dim = step(ink, canvas, 4.5, dark);
+      if (secondary === null || dim === null) continue;
+      // Accent: a saturated, clearly different hue, used for marks only (never text).
+      const accH = (hue + rnd(120, 240)) % 360;
+      let accent = null;
+      for (let L = dark ? 0.62 : 0.72; dark ? L < 0.95 : L > 0.3; L += dark ? 0.01 : -0.01) {
+        const c = toRgb(L, 0.19, accH);
+        if (worst(c, canvas, dark) >= 3.2) { accent = c; break; }
+      }
+      if (!accent) { INK = null; continue; }
+      const res = { canvas: hex(canvas), ink: hex(ink), accent: hex(accent), secondary, dim, dark,
+               body: +worst(ink, canvas, dark).toFixed(2),
+               sub: +worst(over(ink, canvas, secondary), canvas, dark).toFixed(2),
+               large: +worst(over(ink, canvas, dim), canvas, dark).toFixed(2),
+               mark: +worst(accent, canvas, dark).toFixed(2) };
+      INK = null; return res;
+    }
+    return null;
+  }
+  // "/#" (the mark's link) opens the landing directly; anything else gets the arrival.
+  const skipArrival = /#$/.test(location.href);
+  document.documentElement.classList.add('js');
+
+  if (!skipArrival) document.documentElement.classList.add('intro');
+  // Desktop lands on the sheet alone; the content opens when a chapter is chosen.
+  const t = make(), r = document.documentElement;
+  if (t) {
+    r.style.setProperty('--canvas', t.canvas);
+    r.classList.toggle('is-dark', t.dark);
+    r.style.setProperty('--ink', t.ink);
+    r.style.setProperty('--accent', t.accent);
+    r.style.setProperty('--secondary', t.secondary);
+    r.style.setProperty('--dim', t.dim);
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', t.canvas);
+    // Favicon: the symbol on this load's canvas, the asterisk in its ink.
+    const ic = document.querySelector('link[rel="icon"]');
+    if (ic) ic.href = 'data:image/svg+xml,' + encodeURIComponent(decodeURIComponent(ic.href.slice(ic.href.indexOf(',') + 1)).replace('#EEE', t.canvas).replace('#111', t.ink));
+    console.info(`palette ${t.canvas} / ${t.ink} / ${t.accent} — body ${t.body}:1, small ${t.sub}:1, large ${t.large}:1, marks ${t.mark}:1`);
+  }
+  window.WozaPalette = { make, under, worst, DIGIT_ALPHA };
+})();
+</script>
+<link rel="preload" href="fonts/NeueMontreal-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Woza Labs — shore
+
+   A page you read from top to bottom, set on blocks of an uneven
+   grid. Behind it, the coast of Bizkaia, faint: its land is the
+   shape the current ruler draws, and every section halves the
+   ruler, so the land is refined as the page goes on, while the
+   view drifts down the coast into the ría, and ends at Bilbao,
+   where the contact is.
+   ───────────────────────────────────────────────────────────── */
+@font-face{
+  font-family:'Neue Montreal';
+  src:url('fonts/NeueMontreal-Regular.woff2') format('woff2');
+  font-weight:400; font-style:normal; font-display:swap;
+}
+:root{
+  --canvas:#0B0B0B;          /* fallback; a verified palette is applied before paint */
+  --ink:#ECECEC;
+  --accent:#F2B535;
+  --secondary:.86;
+  --dim:.62;
+  --ink-2:color-mix(in srgb, var(--ink) calc(var(--secondary) * 100%), var(--canvas));   /* small text: ≥7:1 */
+  --ink-3:color-mix(in srgb, var(--ink) calc(var(--dim) * 100%), var(--canvas));         /* large text only: ≥4.5:1 */
+  --hair:color-mix(in srgb, var(--ink) 22%, transparent);
+  --mark:color-mix(in srgb, var(--ink) 60%, transparent);
+  /* Fills stay under the palette's verified strength (DIGIT_ALPHA, .14) with the land beneath. */
+  --fill:color-mix(in srgb, var(--ink) 5%, transparent);
+  --fill-2:color-mix(in srgb, var(--ink) 8%, transparent);
+  --m:clamp(20px,3.2vw,64px);
+  --gut:clamp(12px,1.4vw,24px);
+  --u:clamp(8px,1vw,18px);                       /* the vertical step blocks are offset by */
+  --pad:clamp(16px,1.6vw,30px);
+  --head:64px;                                 /* set from the bar's real height on load */
+  --fs:clamp(14px,.98vw,18px);
+  --t-s:clamp(17px,1.35vw,25px);
+  --t-m:clamp(22px,2.1vw,40px);
+  --t-l:clamp(32px,3.9vw,74px);
+  --t-xl:clamp(44px,6.2vw,120px);
+  --t-fig:clamp(72px,11vw,212px);
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  font-family:'Neue Montreal','Helvetica Neue',Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;}
+html{background:var(--canvas);scroll-behavior:smooth;font-synthesis:none;scroll-padding-top:90px;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{margin:0;color:var(--ink);font-size:var(--fs);line-height:1.38;letter-spacing:0;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+::selection{background:var(--ink);color:var(--canvas);}
+a{color:inherit;text-decoration:none;}
+:focus-visible{outline:1px solid var(--accent);outline-offset:4px;}
+p,h1,h2,h3,ul,ol,dl,dd,figure{margin:0;padding:0;}
+h1,h2,h3,dt{font-weight:400;}
+ul,ol{list-style:none;}
+img{display:block;max-width:100%;}
+
+/* ── The land, behind everything ───────────────────────────── */
+.land{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity 1400ms ease;}
+.land.is-on{opacity:1;}
+.land canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+@media (prefers-contrast:more){.land{display:none;}}
+
+/* ── Head: a material bar the page passes under ────────────── */
+.top{position:fixed;z-index:20;top:0;left:0;right:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:1em;
+  padding:clamp(14px,1.3vw,24px) var(--m);
+  background:color-mix(in srgb, var(--canvas) 86%, transparent);
+  -webkit-backdrop-filter:blur(18px) saturate(1.15);backdrop-filter:blur(18px) saturate(1.15);}
+/* no divider: the page fades under the bar instead */
+.top::after{content:"";position:absolute;left:0;right:0;top:100%;height:28px;pointer-events:none;
+  background:linear-gradient(color-mix(in srgb, var(--canvas) 70%, transparent), transparent);}
+.mark{display:block;width:clamp(104px,8.4vw,160px);color:var(--ink);}
+.mark svg{display:block;width:100%;height:auto;}
+.mark__ast{fill:var(--canvas);}
+.version{display:flex;gap:1em;align-items:baseline;line-height:1;color:var(--ink-2);}
+.version a{color:var(--ink-2);transition:color 200ms ease;}
+.version a:hover{color:var(--ink);}
+.version a[aria-current="page"]{color:var(--ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.22em;}
+/* the measurement in hand, always: the brand's scale bar */
+.ro{justify-self:end;display:flex;gap:1.6em;align-items:baseline;line-height:1;white-space:nowrap;}
+.ro div{display:flex;gap:.55em;align-items:baseline;}
+.ro dt{color:var(--ink-2);}
+.ro dd i,.num i{display:inline-block;width:.6em;text-align:center;font-style:normal;}   /* this cut has no tabular figures */
+.ro__sq{width:8px;height:8px;background:var(--accent);align-self:center;}
+
+/* ── The sheet: one 12-column grid, every block a cell ─────────
+   No gaps. Blocks meet edge to edge and are told apart by the
+   hairlines between them and by their own padding. Every row adds
+   up to twelve columns; tall cells span two rows, so the sheet
+   never has a hole. */
+main{position:relative;z-index:1;margin:0 var(--m);padding-top:var(--head);
+  border-left:1px solid var(--hair);}
+.sec,.foot{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-flow:row;}
+main > .sec:first-child{border-top:1px solid var(--hair);}
+.b{grid-column:span var(--s,12);grid-row:span var(--r,1);min-width:0;position:relative;
+  padding:var(--pad);border-right:1px solid var(--hair);border-bottom:1px solid var(--hair);
+  display:flex;flex-direction:column;gap:clamp(10px,1.1vw,18px);}
+.end{justify-content:flex-end;}
+.apart{justify-content:space-between;}
+.tall{min-height:clamp(260px,36vh,440px);}
+.hero{min-height:calc(100svh - var(--head) - clamp(150px,22vh,230px));}
+/* A material cell: a low fill, the land behind softened through it. */
+.fill{background:var(--fill);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
+.deep{background:var(--fill-2);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
+@media (prefers-reduced-transparency:reduce){
+  .fill{background:color-mix(in srgb, var(--ink) 5%, var(--canvas));backdrop-filter:none;-webkit-backdrop-filter:none;}
+  .deep{background:color-mix(in srgb, var(--ink) 8%, var(--canvas));backdrop-filter:none;-webkit-backdrop-filter:none;}
+  .top{background:var(--canvas);backdrop-filter:none;-webkit-backdrop-filter:none;}
+}
+
+/* ── Type ──────────────────────────────────────────────────── */
+.k{color:var(--ink-2);}
+.lbl{display:flex;gap:.8em;align-items:baseline;color:var(--ink-2);}
+.lbl b{font-weight:400;color:var(--ink);}
+.fig{font-size:var(--t-fig);line-height:.78;letter-spacing:-.045em;color:var(--ink-3);}
+.fig--r{align-items:flex-end;text-align:right;}
+.xl{font-size:var(--t-xl);line-height:.98;letter-spacing:-.03em;text-wrap:balance;}
+.l{font-size:var(--t-l);line-height:1.02;letter-spacing:-.025em;text-wrap:balance;}
+.m{font-size:var(--t-m);line-height:1.06;letter-spacing:-.018em;text-wrap:balance;}
+.s{font-size:var(--t-s);line-height:1.24;letter-spacing:-.006em;text-wrap:pretty;}
+.body{max-width:38em;text-wrap:pretty;}
+.links{display:flex;flex-wrap:wrap;gap:.5em 1.6em;}
+.go{display:inline-block;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.24em;transition:color 200ms ease, transform 160ms var(--ease-out);}
+.go--quiet{color:var(--ink-2);}
+.go:hover{color:var(--ink);}
+.go:active{transform:scale(.97);}
+/* the industries reel, set into the headline as a word of its own */
+.pill{display:inline-block;width:2.95em;height:.8em;border-radius:999px;overflow:hidden;vertical-align:-.04em;margin:0 .04em;
+  background:color-mix(in srgb, var(--ink) 12%, var(--canvas));transform:translateZ(0);}
+.pill video{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;}
+
+/* ── Plates: the four platforms, each measured at its own scale ── */
+.plate canvas{display:block;width:100%;aspect-ratio:var(--ar,4 / 3);margin-top:auto;
+  background:color-mix(in srgb, var(--ink) 3%, transparent);}
+.plate.grow canvas{aspect-ratio:auto;flex:1 1 0;min-height:240px;}
+.plate__ro{display:flex;gap:1.4em;color:var(--ink-2);}
+.plate__ro dd{color:var(--ink);}
+.plate__ro div{display:flex;gap:.5em;}
+.ro dd i,.num i{display:inline-block;width:.6em;text-align:center;font-style:normal;}   /* this cut has no tabular figures */
+
+/* ── Cells that are part of a table or a set ───────────────── */
+.sig,.sig > li{display:contents;}
+.sig .o{font-size:var(--t-s);line-height:1.15;letter-spacing:-.006em;}
+.tile{display:grid;place-items:center;text-align:center;color:var(--ink-2);font-size:.86em;min-height:clamp(64px,6vw,110px);padding:.6em .3em;}
+.face img{flex:none;width:100%;height:auto;min-height:0;aspect-ratio:var(--ar,4 / 5);object-fit:cover;object-position:50% 34%;margin-bottom:.4em;
+  background:color-mix(in srgb, var(--ink) 8%, var(--canvas));}
+.face .n{font-size:var(--t-s);line-height:1.15;}
+.face{gap:.2em;}
+
+/* ── Arrival: each cell drawn in from its top edge, once ───── */
+.js .b{clip-path:inset(0 0 100% 0);
+  transition:clip-path 800ms var(--ease-out) var(--d,0ms);}
+.js .b.in{clip-path:inset(0);}
+@media (prefers-reduced-motion:reduce){
+  .js .b{clip-path:none;opacity:0;transition:opacity 300ms ease;}
+  .js .b.in{opacity:1;}
+}
+
+/* ── Foot: the last row of the sheet ───────────────────────── */
+.foot{position:relative;z-index:1;margin:0 var(--m) clamp(24px,4vh,48px);border-left:1px solid var(--hair);color:var(--ink-2);}
+.foot a{color:var(--ink-2);transition:color 200ms ease;}
+.foot a:hover{color:var(--ink);}
+.foot nav{display:flex;gap:1.6em;}
+
+.js .top > *{opacity:0;transition:opacity 900ms ease;}
+.js.ready .top > *{opacity:1;}
+
+@media (max-width:1100px){
+  .ro div:nth-child(3){display:none;}
+}
+@media (max-width:900px){
+  :root{--head:96px;}
+  .top{grid-template-columns:1fr auto;}
+  .version{grid-column:1 / -1;grid-row:2;}
+  .sec,.foot{grid-template-columns:repeat(6,minmax(0,1fr));}
+  .b{grid-column:span 6;grid-row:auto;}
+  .b.m3{grid-column:span 3;}
+  .b.m2{grid-column:span 2;}
+  .b.m4{grid-column:span 4;}
+  .hero{min-height:52svh;}
+  .tall{min-height:0;}
+  .fig{font-size:clamp(64px,20vw,140px);}
+}
+
+.banner{flex-direction:row;justify-content:space-between;align-items:flex-end;gap:var(--gut);min-height:clamp(220px,30vh,380px);}
+.banner > div{display:flex;flex-direction:column;justify-content:space-between;align-self:stretch;gap:1em;}
+.banner .body{max-width:24em;}
+.foot nav.b{flex-direction:row;gap:1.6em;}
+@media (max-width:900px){
+  .nomob{display:none;}
+  .banner{flex-direction:column;align-items:stretch;}
+}
+</style>
+</head>
+<body>
+<div class="land" aria-hidden="true"><canvas></canvas></div>
+
+<header class="top">
+  <a class="mark" href="#top" aria-label="Woza Labs, back to the top"><svg viewBox="0 0 3584 537" fill="currentColor" aria-hidden="true"><g transform="translate(0,537) scale(0.1,-0.1)"><path d="M35012 5350 c-228 -61 -407 -244 -467 -475 -19 -76 -19 -231 0 -314
+25 -105 89 -216 176 -302 62 -63 93 -85 170 -122 52 -25 118 -50 147 -56 76
+-16 238 -14 307 4 195 50 381 214 449 398 50 132 56 270 20 412 -51 196 -219
+371 -431 446 -87 31 -273 36 -371 9z m281 -145 c92 -19 160 -58 238 -135 102
+-100 149 -212 149 -349 0 -42 -6 -99 -14 -127 -45 -168 -192 -315 -361 -359
+-310 -80 -625 165 -625 485 0 223 159 424 383 485 68 18 146 18 230 0z"/><path d="M34950 4720 l0 -300 65 0 64 0 3 103 3 102 65 0 65 0 53 -102 53
+-103 73 0 74 0 -60 116 -60 116 35 36 c44 45 57 78 57 142 0 86 -32 137 -105
+171 -34 16 -66 19 -212 19 l-173 0 0 -300z m307 190 c53 -32 57 -114 7 -161
+-22 -21 -35 -24 -102 -24 l-77 0 -3 89 c-2 49 -1 95 2 103 9 22 134 17 173 -7z"/><path d="M22780 3000 l0 -2350 305 0 305 0 0 2350 0 2350 -305 0 -305 0 0
+-2350z"/><path d="M27820 3000 l0 -2350 235 0 235 0 0 230 0 231 46 -58 c231 -291 651
+-443 1226 -443 492 0 827 116 1089 379 300 300 441 737 443 1376 1 351 -32
+597 -114 846 -145 443 -379 696 -760 823 -199 66 -359 89 -630 89 -217 0 -339
+-12 -510 -50 -253 -56 -407 -134 -567 -287 l-83 -79 0 822 0 821 -305 0 -305
+0 0 -2350z m1935 555 c221 -39 365 -109 470 -227 100 -114 191 -352 227 -595
+20 -138 17 -599 -5 -741 -67 -427 -207 -655 -465 -761 -156 -64 -289 -85 -527
+-84 -363 1 -594 72 -756 233 -64 63 -84 92 -127 180 -105 216 -152 472 -152
+825 0 412 67 701 211 905 102 146 320 249 586 279 123 14 429 6 538 -14z"/><rect width="4730" height="4740" fill="currentColor"/><path class="mark__ast" d="M2171 3828 c6 -24 60 -225 120 -448 l109 -405 -78 -77 -77 -77 -99 27
+c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21
+-12 29 -41z m1389 -523 c0 -5 -221 -230 -490 -500 -270 -269 -490 -493 -490
+-496 0 -4 81 -308 179 -675 99 -368 178 -670 176 -672 -6 -7 -340 -92 -348
+-89 -6 2 -22 48 -37 103 -15 54 -82 306 -150 559 -68 253 -125 462 -127 465
+-2 2 -192 -184 -421 -413 l-417 -417 -133 132 -132 133 417 417 c229 229 415
+419 413 422 -3 2 -252 70 -555 150 -302 81 -557 150 -566 154 -14 6 -11 27 31
+182 45 166 49 175 71 172 13 -1 318 -82 678 -178 l654 -176 496 496 496 496
+127 -127 c71 -70 128 -132 128 -138z m-145 -1021 c242 -65 444 -120 448 -124
+7 -6 -76 -346 -86 -357 -3 -2 -900 236 -903 240 -1 1 -14 49 -28 106 l-28 104
+73 73 c41 41 76 74 79 74 3 0 203 -52 445 -116z"/><path d="M12565 4124 c-389 -30 -650 -109 -891 -270 -241 -161 -454 -491 -544
+-844 -96 -374 -99 -886 -8 -1275 130 -561 470 -919 1003 -1058 191 -50 298
+-62 575 -62 280 0 379 11 587 65 508 131 844 470 988 996 97 353 111 798 39
+1194 -61 334 -218 656 -414 850 -214 213 -510 343 -887 389 -93 12 -372 21
+-448 15z m320 -554 c360 -40 561 -168 696 -445 106 -217 139 -374 146 -691 7
+-302 -16 -489 -86 -696 -129 -382 -364 -553 -812 -589 -340 -28 -638 46 -818
+204 -94 82 -186 229 -244 394 -110 307 -112 866 -5 1203 128 400 346 572 793
+624 67 7 245 5 330 -4z"/><path d="M19149 4120 c-462 -26 -793 -147 -1000 -368 -195 -208 -295 -441
+-306 -719 l-6 -133 305 0 305 0 6 104 c10 175 71 315 176 407 25 22 87 60 136
+84 156 78 309 105 592 105 376 0 619 -65 753 -200 68 -70 129 -187 159 -305
+21 -82 45 -264 37 -272 -3 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983 -140
+-549 -128 -819 -334 -916 -699 -29 -107 -26 -418 4 -530 90 -331 332 -559 726
+-684 187 -60 301 -74 581 -75 219 -1 266 2 379 23 414 74 743 248 949 501 l37
+45 0 -267 0 -268 240 0 240 0 0 1043 c0 1068 -4 1226 -40 1440 -70 421 -286
+714 -631 855 -249 102 -693 155 -1110 132z m1161 -1932 c-1 -414 -128 -676
+-420 -867 -193 -127 -428 -191 -700 -191 -300 0 -539 71 -669 198 -93 92 -131
+187 -131 333 0 115 25 184 92 255 87 92 253 159 528 214 153 30 1189 177 1263
+179 l37 1 0 -122z"/><path d="M25369 4120 c-342 -19 -633 -97 -824 -221 -134 -87 -264 -229 -350
+-384 -82 -146 -135 -354 -135 -527 l0 -88 303 0 304 0 6 103 c15 243 109 394
+309 491 161 79 313 106 595 106 278 0 498 -39 638 -113 169 -90 271 -277 305
+-561 6 -54 9 -100 6 -103 -2 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983
+-140 -538 -125 -799 -317 -906 -669 -26 -84 -28 -103 -28 -275 -1 -214 16
+-303 83 -444 50 -106 84 -154 167 -238 154 -156 387 -272 654 -327 310 -65
+722 -50 1020 35 286 83 556 244 707 423 l58 70 3 -265 2 -264 240 0 240 0 0
+1048 c0 641 -4 1101 -11 1187 -25 336 -86 542 -223 755 -154 238 -403 377
+-796 444 -192 33 -523 49 -751 36z m1161 -1928 c0 -390 -116 -652 -373 -841
+-184 -135 -411 -208 -682 -218 -467 -19 -778 125 -850 391 -24 89 -17 231 14
+303 63 143 242 234 596 304 149 29 1186 176 1258 178 l37 1 0 -118z"/><path d="M32865 4120 c-484 -27 -811 -140 -1029 -357 -116 -115 -185 -234
+-227 -388 -18 -66 -22 -108 -23 -240 -1 -186 11 -243 77 -370 74 -143 257
+-302 443 -386 161 -72 611 -186 1299 -329 173 -36 273 -68 365 -116 135 -70
+216 -153 241 -247 17 -64 6 -167 -25 -231 -35 -72 -137 -166 -228 -212 -156
+-79 -350 -108 -665 -101 -245 5 -343 19 -495 71 -119 41 -192 83 -276 161
+-127 117 -186 247 -198 439 l-7 106 -298 0 -299 0 0 -96 c0 -231 66 -459 187
+-641 50 -77 180 -212 262 -272 269 -199 666 -301 1176 -301 573 0 957 121
+1220 385 183 182 266 377 266 620 0 145 -20 239 -77 355 -39 79 -62 110 -133
+181 -138 138 -317 246 -537 322 -115 40 -427 114 -769 182 -258 52 -368 79
+-517 131 -207 72 -325 151 -374 250 -24 49 -26 63 -22 138 6 107 37 175 114
+245 137 126 355 181 709 181 189 0 300 -11 420 -41 319 -81 514 -313 515 -611
+l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
+-1349 365z"/><path d="M5713 4078 c7 -20 1058 -3359 1069 -3395 l9 -33 317 0 317 0 420
+1299 c231 715 421 1296 423 1293 2 -4 198 -587 435 -1297 l432 -1290 329 0
+330 0 553 1710 c304 941 553 1713 553 1718 0 4 -149 6 -332 5 l-332 -3 -395
+-1307 c-218 -719 -398 -1305 -400 -1302 -3 3 -202 591 -442 1307 l-436 1302
+-289 0 -288 0 -291 -885 c-159 -487 -350 -1069 -424 -1293 -73 -225 -137 -405
+-141 -400 -4 4 -165 564 -358 1243 -194 679 -359 1259 -367 1288 l-16 52 -340
+0 c-269 0 -340 -3 -336 -12z"/><path d="M14612 3823 l3 -268 983 -3 c540 -1 982 -4 982 -7 0 -3 -320 -391
+-712 -863 -392 -471 -753 -906 -803 -966 -49 -60 -174 -211 -277 -335 l-188
+-225 0 -253 0 -253 1420 0 1420 0 0 265 0 265 -1036 2 -1036 3 1006 1193 1006
+1193 0 259 0 260 -1385 0 -1385 0 2 -267z"/></g></svg></a>
+  <nav class="version" aria-label="Version"><span>Version</span><a href="index.html">Current</a><a href="walk.html">New</a><a href="nave.html">Nave</a><a href="coral.html">Reef</a><a href="coast.html">Coast</a><a href="shore.html" aria-current="page">Shore</a><a href="graft.html">Graft</a><a href="plain.html">Plain</a><a href="portico.html">Portico</a><a href="atrium.html">Atrium</a></nav>
+  <dl class="ro" aria-label="The coast of Bizkaia, measured">
+    <span class="ro__sq" aria-hidden="true"></span>
+    <div><dt>Ruler</dt><dd data-k="ruler"></dd></div>
+    <div><dt>Segments</dt><dd data-k="seg"></dd></div>
+    <div><dt>Coast</dt><dd data-k="len"></dd></div>
+  </dl>
+</header>
+
+<main id="top">
+
+  <!-- 00 · Thesis ─ 10 + 2 / 5 + 4 + 3 -->
+  <section class="sec" id="thesis" aria-labelledby="h0">
+    <h1 class="b hero end xl" id="h0" style="--s:10"><span>The next frontier <span class="pill" aria-hidden="true"><video autoplay muted loop playsinline preload="auto" poster="media/industries.jpg" disablepictureinpicture tabindex="-1"><source src="media/industries.mp4" type="video/mp4"><source src="media/industries.webm" type="video/webm"></video></span> of intelligence is physical.</span></h1>
+    <p class="b fig fig--r nomob" style="--s:2" aria-hidden="true">00</p>
+    <div class="b fill" style="--s:5">
+      <p class="lbl"><span>00</span><b>Thesis</b></p>
+      <p class="s">Woza brings applied science, ontology, AI and engineering together into proprietary technologies so that knowledge becomes something we can build with.</p>
+    </div>
+    <p class="b end l" style="--s:4">An operational system.</p>
+    <p class="b end" style="--s:3"><span class="links"><a class="go" href="mailto:hello@wozalabs.com?subject=Deploy%20with%20Woza">Deploy with us</a><a class="go go--quiet" href="mailto:hello@wozalabs.com?subject=Investor%20deck%20request">Request the investor deck</a></span></p>
+  </section>
+
+  <!-- 01 · Technology ─ 3 + 9 / 6↓ + 3 + 3 / 6↓ + 6 / 5 + 4 + 3 -->
+  <section class="sec" id="technology" aria-labelledby="h1">
+    <p class="b fig m2" style="--s:3" aria-hidden="true">01</p>
+    <div class="b end m4" style="--s:9">
+      <p class="lbl"><span>01</span><b>Technology</b></p>
+      <h2 class="l" id="h1">The next leap, engineered.</h2>
+    </div>
+    <article class="b deep plate grow" style="--s:6;--r:2" data-level="0">
+      <p class="k">Ark</p>
+      <h3 class="m">Structure physical reality.</h3>
+      <canvas aria-hidden="true"></canvas>
+      <dl class="plate__ro"><div><dt>Ruler</dt><dd data-k="ruler"></dd></div><div><dt>Length</dt><dd data-k="len"></dd></div></dl>
+    </article>
+    <article class="b plate" style="--s:3" data-level="1">
+      <p class="k">Orion</p>
+      <h3 class="m">Connect science and intelligence.</h3>
+      <canvas style="--ar:1 / 1" aria-hidden="true"></canvas>
+      <dl class="plate__ro"><div><dt>Ruler</dt><dd data-k="ruler"></dd></div><div><dt>Length</dt><dd data-k="len"></dd></div></dl>
+    </article>
+    <article class="b fill plate" style="--s:3" data-level="2">
+      <p class="k">Zenith</p>
+      <h3 class="m">Anticipate change.</h3>
+      <canvas style="--ar:1 / 1" aria-hidden="true"></canvas>
+      <dl class="plate__ro"><div><dt>Ruler</dt><dd data-k="ruler"></dd></div><div><dt>Length</dt><dd data-k="len"></dd></div></dl>
+    </article>
+    <article class="b plate" style="--s:6" data-level="3">
+      <p class="k">Atlas</p>
+      <h3 class="m">Make intelligence operational.</h3>
+      <canvas style="--ar:21 / 9" aria-hidden="true"></canvas>
+      <dl class="plate__ro"><div><dt>Ruler</dt><dd data-k="ruler"></dd></div><div><dt>Length</dt><dd data-k="len"></dd></div></dl>
+    </article>
+    <p class="b fill s" style="--s:5">Technology, human judgment and a shared engineering discipline, working as one. To turn what science makes possible into what the world can build next.</p>
+    <p class="b end m" style="--s:4">Nothing starts from zero.</p>
+    <p class="b end" style="--s:3"><span class="links"><a class="go" href="#deployments">See who already uses it</a><a class="go go--quiet" href="mailto:hello@wozalabs.com?subject=Talk%20to%20an%20Earth%20System%20Engineer">Talk to an Earth System Engineer</a></span></p>
+  </section>
+
+  <!-- 02 · Invention ─ 8 + 4 / 3 + 3 + 6↓ / 3 + 3 + 6↓ -->
+  <section class="sec" id="invention" aria-labelledby="h2">
+    <div class="b m4" style="--s:8">
+      <p class="lbl"><span>02</span><b>Invention</b></p>
+      <h2 class="m body" id="h2" style="line-height:1.12">We identify the challenges ahead and build the capabilities industry will need to meet them. New protocols. Scientific models. Engineering methods. Developed and validated against the demands of the physical world.</h2>
+    </div>
+    <p class="b fill fig fig--r m2" style="--s:4" aria-hidden="true">02</p>
+    <article class="b tall apart m3" style="--s:3"><p class="k">Protocol</p><div><h3 class="m">ForestLayer</h3><p class="k">A shared structure for forest systems</p></div></article>
+    <article class="b fill tall apart m3" style="--s:3"><p class="k">Protocol</p><div><h3 class="m">AgriLayer</h3><p class="k">Crop cycles, yield and chain of custody, connected.</p></div></article>
+    <article class="b deep apart" style="--s:6;--r:2"><p class="k">Model</p><div><h3 class="xl">Hectareo-Agri 3.8B</h3><p class="k">Agricultural language model.</p></div></article>
+    <article class="b apart m3" style="--s:3"><p class="k">FUTURED paper.</p><h3 class="m">Spatial digital twins for vegetation risk in power grids</h3></article>
+    <p class="b fill end m3" style="--s:3"><a class="go s" href="mailto:hello@wozalabs.com?subject=Engineer%20the%20next%20breakthrough">Engineer the next breakthrough</a></p>
+  </section>
+
+  <!-- 03 · Our technology ─ 3 + 9 / 6↓ + 3 + 3 / 6↓ + 3 + 3 / 4 + 4 + 4 / 12 / 3 + 9×1 / 7 + 5 -->
+  <section class="sec" id="deployments" aria-labelledby="h3">
+    <p class="b fig m2" style="--s:3" aria-hidden="true">03</p>
+    <div class="b end m4" style="--s:9">
+      <p class="lbl"><span>03</span><b>Our technology.</b></p>
+      <h2 class="l" id="h3">One engine. Expanding what entire systems can do.</h2>
+    </div>
+    <article class="b deep apart" style="--s:6;--r:2"><h3 class="xl">Iberdrola</h3><p class="s body">A grid that can prepare for the storm before it becomes an outage.</p></article>
+    <article class="b tall apart m3" style="--s:3"><h3 class="m">UFD · Naturgy</h3><p class="k">An entire power network modelled against its possible futures, asset by asset.</p></article>
+    <article class="b fill tall apart m3" style="--s:3"><h3 class="m">Moeve</h3><p class="k">Applied intelligence strengthening the foundations of BIO certification.</p></article>
+    <article class="b fill tall apart m3" style="--s:3"><h3 class="m">HAZI</h3><p class="k">An entire region’s forests become one living system: understood, queried and managed together.</p></article>
+    <article class="b tall apart m3" style="--s:3"><h3 class="m">Azpilur</h3><p class="k">The future of industrial land can be simulated before it is built.</p></article>
+    <article class="b apart" style="--s:4"><h3 class="m">Agrology</h3><p class="k">A shared scientific foundation lets an agricultural platform develop new capabilities without starting again.</p></article>
+    <article class="b fill apart" style="--s:4"><h3 class="m">SIMA Earth</h3><p class="k">Crop health, climate and markets become one connected intelligence for agricultural decisions.</p></article>
+    <article class="b apart" style="--s:4"><h3 class="m">EVE</h3><p class="k">A city’s movement becomes a system that can be modelled and reshaped to reduce emissions.</p></article>
+    <article class="b deep banner" style="--s:12">
+      <div><p class="k">Technology collaboration.</p><h3 class="xl">Google + Woza</h3></div>
+      <p class="s body">Planetary-scale computing meets the engineering of physical resilience.</p>
+    </article>
+    <p class="b end k" style="--s:3">Trusted by</p>
+    <p class="b tile m2" style="--s:1">Client logo</p><p class="b tile m2" style="--s:1">Client logo</p><p class="b tile m2" style="--s:1">Client logo</p>
+    <p class="b tile m2" style="--s:1">Client logo</p><p class="b tile m2" style="--s:1">Client logo</p><p class="b tile m2" style="--s:1">Client logo</p>
+    <p class="b tile m2" style="--s:1">Client logo</p><p class="b tile m2" style="--s:1">Client logo</p><p class="b tile m2" style="--s:1">Client logo</p>
+    <p class="b tall end l" style="--s:7">There is more than we can show.</p>
+    <div class="b fill apart" style="--s:5">
+      <p class="s">Selected deployments remain under NDA. The public record is only part of the story.</p>
+      <p class="links"><a class="go" href="mailto:hello@wozalabs.com?subject=Private%20briefing">Request a private briefing</a></p>
+    </div>
+  </section>
+
+  <!-- 04 · The thesis ─ 8 + 4 / 6↓ + 3 + 3 / 6↓ + 6 -->
+  <section class="sec" id="ventures" aria-labelledby="h4">
+    <div class="b end m4" style="--s:8">
+      <p class="lbl"><span>04</span><b>Ventures</b></p>
+      <h2 class="l" id="h4">The thesis.</h2>
+    </div>
+    <p class="b fig fig--r m2" style="--s:4" aria-hidden="true">04</p>
+    <article class="b fill apart" style="--s:6;--r:2"><h3 class="xl">Predicterra</h3><p class="s">Physical climate risk for energy infrastructure.</p></article>
+    <article class="b tall apart m3" style="--s:3"><h3 class="m">Hectareo</h3><p class="k">Agricultural intelligence.</p></article>
+    <article class="b deep tall apart m3" style="--s:3"><h3 class="m">AboveForest</h3><p class="k">Forest intelligence.</p></article>
+    <p class="b end" style="--s:6"><a class="go m" href="mailto:hello@wozalabs.com?subject=Build%20a%20company%20with%20Woza">Build a company with us</a></p>
+  </section>
+
+  <!-- 05 · Signals ─ 3 + 9 / then each signal: 1 + 2 + 3 + 6 -->
+  <section class="sec" id="signals" aria-labelledby="h5">
+    <p class="b fill fig m2" style="--s:3" aria-hidden="true">05</p>
+    <div class="b end m4" style="--s:9">
+      <p class="lbl"><span>05</span><b>Signals</b></p>
+      <h2 class="l" id="h5">The ideas travel before the industry moves.</h2>
+    </div>
+    <ol class="sig" role="list">
+      <li role="listitem"><span class="b fill num m2" style="--s:1">2026</span><span class="b fill k m4" style="--s:2">Selection</span><span class="b fill o" style="--s:3">Moeve</span><span class="b fill k" style="--s:6">Selected as deep science in a major energy operator’s program.</span></li>
+      <li role="listitem"><span class="b num m2" style="--s:1">2025</span><span class="b k m4" style="--s:2">Broadcast</span><span class="b o" style="--s:3">Euronews</span><span class="b k" style="--s:6">How an industrial region adapts its critical infrastructure to climate.</span></li>
+      <li role="listitem"><span class="b num m2" style="--s:1">2025</span><span class="b k m4" style="--s:2">Research</span><span class="b o" style="--s:3">Google</span><span class="b k" style="--s:6">The forest case, presented at the Geo for Good summit in New York.</span></li>
+      <li role="listitem"><span class="b num m2" style="--s:1">2025</span><span class="b k m4" style="--s:2">Editorial</span><span class="b o" style="--s:3">Latitude Media</span><span class="b k" style="--s:6">A feature on the intelligence making Iberdrola’s grid resilient.</span></li>
+      <li role="listitem"><span class="b num m2" style="--s:1">2025</span><span class="b k m4" style="--s:2">Editorial</span><span class="b o" style="--s:3">Corriere della Sera</span><span class="b k" style="--s:6">Woza’s work in the record of Italy’s paper of reference.</span></li>
+      <li role="listitem"><span class="b fill num m2" style="--s:1">2023</span><span class="b fill k m4" style="--s:2">Award</span><span class="b fill o" style="--s:3">Iberdrola</span><span class="b fill k" style="--s:6">Winner of the NewTech Challenge for grid resilience.</span></li>
+      <li role="listitem"><span class="b m2" style="--s:1">year</span><span class="b k m4" style="--s:2">Award</span><span class="b o" style="--s:3">Iberdrola Perseo</span><span class="b k" style="--s:6">Winner.</span></li>
+      <li role="listitem"><span class="b m2" style="--s:1">year</span><span class="b k m4" style="--s:2">Award</span><span class="b o" style="--s:3">BIND 4.0</span><span class="b k" style="--s:6">Winner.</span></li>
+    </ol>
+  </section>
+
+  <!-- 06 · Team ─ 6 + 3 + 3 / 4 + 4 + 2 + 2 / 2 × 6 -->
+  <section class="sec" id="team" aria-labelledby="h6">
+    <div class="b" style="--s:6">
+      <p class="lbl"><span>06</span><b>Team</b></p>
+      <h2 class="l" id="h6">We didn’t enter a category. We started one.</h2>
+      <p class="k body">The physical world’s next engineering discipline won’t emerge by accident. We’re building it.</p>
+    </div>
+    <p class="b fill fig fig--r m2" style="--s:3" aria-hidden="true">06</p>
+    <p class="b end k m4" style="--s:3">The people who decided it</p>
+    <figure class="b face m3" style="--s:4;--ar:5 / 4"><img src="team/sp.webp" alt="" width="640" height="640" loading="lazy" decoding="async"><figcaption><span class="n">Sebastian Priolo</span><br><span class="k">Co-founder & CEO</span></figcaption></figure>
+    <figure class="b face m3" style="--s:4;--ar:5 / 4"><img src="team/ft.webp" alt="" width="640" height="640" loading="lazy" decoding="async"><figcaption><span class="n">Fernando Tadakuma</span><br><span class="k">Co-founder & CDO</span></figcaption></figure>
+    <figure class="b face m3" style="--s:2"><img src="team/fh.webp" alt="" width="640" height="640" loading="lazy" decoding="async"><figcaption><span class="n">Federico Hasicic</span><br><span class="k">CRSO</span></figcaption></figure>
+    <figure class="b face m3" style="--s:2"><img src="team/pg.webp" alt="" width="640" height="640" loading="lazy" decoding="async"><figcaption><span class="n">Pablo Grotto</span><br><span class="k">CTO</span></figcaption></figure>
+    <figure class="b face m3" style="--s:2"><img src="team/ar.webp" alt="" width="640" height="640" loading="lazy" decoding="async"><figcaption><span class="n">Asier Rosa</span><br><span class="k">Engine Engineer</span></figcaption></figure>
+    <figure class="b face m3" style="--s:2"><img src="team/ug.webp" alt="" width="640" height="640" loading="lazy" decoding="async"><figcaption><span class="n">Unax Gómez</span><br><span class="k">Design Engineer</span></figcaption></figure>
+    <figure class="b face m3" style="--s:2"><img src="team/mf.webp" alt="" width="640" height="640" loading="lazy" decoding="async"><figcaption><span class="n">Mariana Fernández</span><br><span class="k">Engine Engineer</span></figcaption></figure>
+    <figure class="b face m3" style="--s:2"><img src="team/am.webp" alt="" width="640" height="640" loading="lazy" decoding="async"><figcaption><span class="n">Ane Mugarza</span><br><span class="k">Engine Engineer</span></figcaption></figure>
+    <figure class="b face m3" style="--s:2"><img src="team/mt.webp" alt="" width="640" height="640" loading="lazy" decoding="async"><figcaption><span class="n">Martin Tanielian</span><br><span class="k">Engine Engineer</span></figcaption></figure>
+    <figure class="b face m3" style="--s:2"><img src="team/fn.webp" alt="" width="640" height="640" loading="lazy" decoding="async"><figcaption><span class="n">Federico Nery</span><br><span class="k">Engine Engineer</span></figcaption></figure>
+  </section>
+
+  <!-- 07 · Contact ─ 12 / 4 + 4 + 4 / 8 + 4 -->
+  <section class="sec" id="contact" aria-labelledby="h7">
+    <div class="b" style="--s:12">
+      <p class="lbl"><span>07</span><b>Contact</b></p>
+      <h2 class="xl" id="h7" style="font-size:min(var(--t-xl),8.6vw)"><a class="go" href="mailto:hello@wozalabs.com" style="text-decoration-thickness:2px;text-underline-offset:.14em">hello@wozalabs.com</a></h2>
+    </div>
+    <div class="b fill apart tall" style="--s:4"><p class="k">Bilbao</p><p class="s">BAT, Gran Vía 1, 48001 Bilbao.</p></div>
+    <div class="b apart tall" style="--s:4"><p class="k">Donostia</p><p class="s">Parke Mikeletegi 53, 20009 Donostia.</p></div>
+    <div class="b apart tall" style="--s:4">
+      <div><p class="s"><a class="go go--quiet" href="tel:+34965023145">EU +34 965 02 31 45</a></p><p class="s"><a class="go go--quiet" href="tel:+19296677718">US +1 929 667 7718.</a></p></div>
+      <p class="links"><a class="go go--quiet" href="https://www.linkedin.com/company/wozalabs">LinkedIn</a><a class="go go--quiet" href="https://x.com/wozalabs">X</a></p>
+    </div>
+    <p class="b deep end m4" style="--s:8"><a class="go l" href="mailto:hello@wozalabs.com?subject=Deploy%20with%20Woza">Deploy with us</a></p>
+    <p class="b fig fig--r m2" style="--s:4" aria-hidden="true">07</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <span class="b" style="--s:4">Technologies behind the physical economy</span>
+  <span class="b" style="--s:4">Coastline: OpenStreetMap contributors</span>
+  <nav class="b" style="--s:4" aria-label="Legal"><a href="https://www.wozalabs.com/privacy-policy">Privacy</a><a href="https://www.wozalabs.com/legal-notice">Legal</a></nav>
+</footer>
+
+<script>
+/* ─────────────────────────────────────────────────────────────
+   The land behind the page, and the four plates.
+
+   The shore is the real coast of Bizkaia, from OpenStreetMap; below the resolution of
+   that record it is refined by midpoint displacement, so the edge is the same at every
+   scale and only ever gains vertices. The land drawn behind the page is not that edge:
+   it is the shape the dividers make when they walk it with the current ruler. Each
+   section halves the ruler, the segments split onto the shore, and the land takes the
+   new, finer shape. The true edge is drawn too, as a hairline, for the measure to approach.
+   Everything behind the text stays under the palette's verified ink strength.
+   ───────────────────────────────────────────────────────────── */
+(() => {
+  'use strict';
+  const root = document.documentElement;
+  root.classList.add('js');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const land = document.querySelector('.land'), cv = land.querySelector('canvas'), g0 = cv.getContext('2d');
+
+  // ── The shore: local metres east and north of 43.35° N, 3° W ──
+  const RAW = [-49865,16689,197,-570,813,1435,1145,538,738,-150,-261,-276,185,-515,-434,-326,32,-851,-276,-295,-419,-875,73,-188,414,24,-67,-248,45,-138,428,-101,-9,-46,-121,-48,-186,-170,7,-336,58,-122,270,719,-442,120,74,232,-62,155,-454,118,593,723,215,1350,1645,818,342,-249,813,159,733,-580,51,-733,-136,177,-120,-40,294,-630,440,138,312,-340,918,435,480,-292,-336,-1331,784,-699,-250,91,-346,-369,-255,502,118,-459,-343,-38,437,0,-323,-129,53,-152,705,601,1382,-498,1307,-3,110,-432,624,-151,1112,-79,545,382,1173,-389,531,-912,42,-1230,-1026,-783,-958,245,18,-365,625,-1332,1117,-1081,684,-72,144,135,-151,30,-1,105,36,119,118,113,-132,-321,153,-42,282,-152,-287,559,266,150,-417,-149,297,207,422,-150,10,-355,530,-110,416,320,1458,-294,775,200,83,-421,781,-147,1440,493,512,-413,1066,739,-201,-1418,455,-390,655,95,110,659,539,8,1752,-709,2061,-29,858,-493,1504,-231,533,-290,-362,-542,148,-389,556,112,688,-583,-424,311,-298,-80,323,-676,197,214,-48,-501,369,206,985,-546,99,-918,663,285,299,-737,554,-273,333,237,788,-868,350,260,1058,-223,1218,411,274,-195,359,-626,-214,-304,854,-439,63,-445,246,-333,-674,-411,-321,-288,-27,-115,92,-265,-115,-166,-2,-92,254,-402,-188,1032,1019,714,-267,731,-704,748,700,410,258,1525,2035,1468,-1570,-1578,1119,102,-254,-234,347,-218,509,348,381,-35,-705,-320,481,-241,-79,-712,492,360,238,832,2130,-373,-338,19,29,-252,-1547,278,-157,-573,1990,-1236,465,673,-400,268,1094,-573,-42,-508,-695,-128,813,-134,-42,-266,-999,208,1203,-433,-169,-561,606,-313,39,30,-230,298,22,24,-97,176,17,24,1325,-1906,289,-77,99,338,-335,143,410,-164,1268,-634,70,-7,591,-447,-145,-453,896,-1666,-444,-911,-62,-711,324,-722,-212,-261,19,-171,411,-422,-388,461,206,353,-324,761,530,1541,83,-1288,549,-882,426,-341,901,192,-930,-99,-476,492,-335,1277,549,-1245,511,-282,-552,557,-819,2161,327,161,323,263,75,215,535,6,384,302,-930,-264,-730,-638,-619,2033,-2845,1188,-492,759,252,-198,-49,188,106,178,67,2,-162,-179,184,-60,407,1097,-356,261,-502,-19,355,-363,-745,219,405,22,-524,305,1050,-148,179,801,-847,731,328,396,-1654,1697,679,630,1999,392,1272,980,19,424,403,6,65,474,839,457,308,1049,838,236,556,-479,282,240,-61,-244,300,-275,-402,-280,-45,-160,512,-303,438,-980,-350,1045,-518,268,487,272,-323,459,335,86,-13,574,-627,56,95,560,-284,-114,795,1613,887,-208,1974,459,706,-164,-83,-434,211,-171,176,167,-181,-101,-38,52,-11,95,345,74,174,-290,92,345,1067,140,752,-140,370,-506,2995,91,430,340,1422,-440,989,1187,762,385,-89,373,726,-359,1322,583,667,765,424,-520,-90,-841,748,-1674,1443,-318,122,-642,789,197,-1128,-455,830,-2,45,258,986,-595,368,-1057,-273,-174,470,-765,1279,1641,1654,-279,921,708,759,-429,-85,-1062,1651,-1241,1273,361,920,-815,593,90,-123,-389,71,-150,613,595,1054,269,765,-1027,76,-676,714,-308,843,503,1030,-254,900,243,516,-1116,343,-42,-306,-275,289,-418,266,411,629,-100,355,-763,995,-671,955,-1636,310,167,1113,-498,762,159,1381,-905,-574,-46,203,-577,-833,96,-304,-266,1093,103,111,114,-81,168,59,202,94,103,515,-407,112,324,1260,-470,1179,-934,80,122,234,-1,-565,-643,1018,325,1221,-729,160,-467,889,510,1553,-753,1078,264,2055,-465,1356,626,507,-128,136,446,884,-68,102,240,161,127,-217,-352,-399,-380,-224,-347,911,-527,-13,-451,-296,-117,-488,-484,1,-238,266,-127,-223,365,720,330,134,799,-772,342,-101,100,55,189,362,-130,-272,278,395,383,80,200,116,-280,411,179,106,523,882,275,1779,-759,455,855];
+  const LON0 = -3, LAT0 = 43.35, KX = 111320 * Math.cos(LAT0 * Math.PI / 180), KY = 110574;
+  const BX = [], BY = [];
+  { let x = RAW[0], y = RAW[1]; BX.push(x); BY.push(y); for (let i = 2; i < RAW.length; i += 2) { x += RAW[i]; y += RAW[i + 1]; BX.push(x); BY.push(y); } }
+  const NB = BX.length, SOUTH = Math.min(...BY) - 400000;
+  const ptSeg = (px, py, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy, t = l ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l)) : 0; return Math.hypot(px - ax - dx * t, py - ay - dy * t); };
+  const CAP = new Float64Array(NB - 1);                                   // never wander far enough to cross the other bank
+  for (let i = 0; i < NB - 1; i++) {
+    let m = Infinity;
+    for (let j = 0; j < NB - 1; j++) {
+      if (Math.abs(i - j) <= 3) continue;
+      m = Math.min(m, ptSeg(BX[i], BY[i], BX[j], BY[j], BX[j + 1], BY[j + 1]), ptSeg(BX[i + 1], BY[i + 1], BX[j], BY[j], BX[j + 1], BY[j + 1]),
+                      ptSeg(BX[j], BY[j], BX[i], BY[i], BX[i + 1], BY[i + 1]), ptSeg(BX[j + 1], BY[j + 1], BX[i], BY[i], BX[i + 1], BY[i + 1]));
+    }
+    CAP[i] = .08 * m;
+  }
+  const ROUGH = .32;
+  const mix = h => { h ^= h >>> 16; h = Math.imul(h, 0x7feb352d); h ^= h >>> 15; h = Math.imul(h, 0x846ca68b); h ^= h >>> 16; return h >>> 0; };
+  const rnd = (i, d, idx) => mix(mix(mix(mix(Math.imul(i + 1, 0x9E3779B1) ^ 0x5bd1e995) ^ Math.imul(d + 7, 0x85EBCA77)) ^ (idx >>> 0)) ^ Math.floor(idx / 4294967296)) / 4294967296;
+  function split(ax, ay, bx, by, i, d, idx) {
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1e-12, u = rnd(i, d, idx);
+    const A = Math.min(ROUGH * L, CAP[i]) * (u < .5 ? -1 : 1) * (.55 + .9 * Math.abs(u - .5));
+    return [(ax + bx) / 2 - dy / L * A, (ay + by) / 2 + dx / L * A];
+  }
+  let OUT, RX0, RY0, RX1, RY1, EPS;
+  function rec(ax, ay, bx, by, i, d, idx) {
+    const L = Math.hypot(bx - ax, by - ay), pad = .85 * L;
+    if (L <= EPS || d > 48 || Math.max(ax, bx) + pad < RX0 || Math.min(ax, bx) - pad > RX1 || Math.max(ay, by) + pad < RY0 || Math.min(ay, by) - pad > RY1) { OUT.push(bx, by); return; }
+    const m = split(ax, ay, bx, by, i, d, idx);
+    rec(ax, ay, m[0], m[1], i, d + 1, idx * 2);
+    rec(m[0], m[1], bx, by, i, d + 1, idx * 2 + 1);
+  }
+  function refine(x0, y0, x1, y1, eps, a = 0, b = NB - 1) {
+    OUT = [BX[a], BY[a]]; RX0 = x0; RY0 = y0; RX1 = x1; RY1 = y1; EPS = eps;
+    for (let i = a; i < b; i++) rec(BX[i], BY[i], BX[i + 1], BY[i + 1], i, 0, 0);
+    return OUT;
+  }
+  // A vertex of the shore as close as it gets to a place: the descent toward it, step by step.
+  function shoreNear(px, py) {
+    let i = 0, best = Infinity;
+    for (let j = 0; j < NB - 1; j++) { const d = ptSeg(px, py, BX[j], BY[j], BX[j + 1], BY[j + 1]); if (d < best) { best = d; i = j; } }
+    let ax = BX[i], ay = BY[i], bx = BX[i + 1], by = BY[i + 1], d = 0, idx = 0, m = [ax, ay];
+    while (Math.hypot(bx - ax, by - ay) > 1.5e-5 && d < 48) {
+      m = split(ax, ay, bx, by, i, d, idx);
+      if (ptSeg(px, py, ax, ay, m[0], m[1]) <= ptSeg(px, py, m[0], m[1], bx, by)) { bx = m[0]; by = m[1]; idx *= 2; } else { ax = m[0]; ay = m[1]; idx = idx * 2 + 1; }
+      d++;
+    }
+    return m;
+  }
+  const T = shoreNear((-2.926 - LON0) * KX, (43.2627 - LAT0) * KY);    // the ría, as close to the Gran Vía as the shore comes
+  const C0 = [16000, 1500];                                               // the coast of Bizkaia, whole
+
+  // ── Measuring: the divider ──
+  function divider(P, cum, i0, i1, r) {
+    let cx = P[2 * i0], cy = P[2 * i0 + 1], j = i0;
+    const X = [cx], Y = [cy], S = [cum[i0]], r2 = r * r;
+    for (;;) {
+      let hit = false;
+      for (let q = j; q < i1; q++) {
+        const bx = P[2 * q + 2], by = P[2 * q + 3];
+        if ((bx - cx) ** 2 + (by - cy) ** 2 < r2) continue;
+        const ax = q === j ? cx : P[2 * q], ay = q === j ? cy : P[2 * q + 1];
+        const dx = bx - ax, dy = by - ay, fx = ax - cx, fy = ay - cy, a = dx * dx + dy * dy, b = 2 * (fx * dx + fy * dy), c = fx * fx + fy * fy - r2;
+        const t = (-b + Math.sqrt(Math.max(0, b * b - 4 * a * c))) / (2 * a), nx = ax + dx * t, ny = ay + dy * t;
+        X.push(nx); Y.push(ny); S.push(cum[q] + Math.hypot(nx - P[2 * q], ny - P[2 * q + 1]));
+        cx = nx; cy = ny; j = q; hit = true; break;
+      }
+      if (!hit || X.length > 8000) break;
+    }
+    const ex = P[2 * i1], ey = P[2 * i1 + 1];
+    return { X, Y, S, n: X.length - 1, rem: Math.hypot(ex - cx, ey - cy), ex, ey, r };
+  }
+  const cumOf = P => { const n = P.length / 2, c = new Float64Array(n); for (let j = 1; j < n; j++) c[j] = c[j - 1] + Math.hypot(P[2 * j] - P[2 * j - 2], P[2 * j + 1] - P[2 * j - 1]); return c; };
+  function startPositions(line, oldX, oldY, oldS) {                       // each new vertex starts on the old line, at the same place along the shore
+    const fx = [], fy = [];
+    let q = 0;
+    for (let j = 0; j < line.X.length; j++) {
+      const s = line.S[j];
+      while (q < oldS.length - 2 && oldS[q + 1] < s) q++;
+      const s0 = oldS[q], s1 = oldS[q + 1] ?? s0, t = s1 > s0 ? Math.max(0, Math.min(1, (s - s0) / (s1 - s0))) : 0;
+      fx.push(oldX[q] + ((oldX[q + 1] ?? oldX[q]) - oldX[q]) * t); fy.push(oldY[q] + ((oldY[q + 1] ?? oldY[q]) - oldY[q]) * t);
+    }
+    return [fx, fy];
+  }
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+  const shown = st => { const l = st.line; if (st.p >= 1 || !st.fromX) return [l.X, l.Y]; const e = easeOut(st.p); return [l.X.map((x, j) => st.fromX[j] + (x - st.fromX[j]) * e), l.Y.map((y, j) => st.fromY[j] + (y - st.fromY[j]) * e)]; };
+  function retarget(st, line) {                                           // a ruler change: split (or merge) from what is on screen now
+    const [ox, oy] = shown(st), os = st.line.S;
+    [st.fromX, st.fromY] = startPositions(line, ox, oy, os);
+    st.sigA = st.p >= 1 ? st.sigB : Math.min(st.sigA, st.sigB); st.sigB = line.r / 5;
+    st.line = line; st.p = reduce ? 1 : 0;
+  }
+
+  // The whole Bizkaia shore, from the Cantabrian border to Ondarroa, refined once, finely enough for every ruler.
+  let I0 = 0, I1 = NB - 1;
+  for (let i = 0; i < NB; i++) if (BX[i] >= (-3.17 - LON0) * KX) { I0 = i; break; }
+  for (let i = NB - 1; i >= 0; i--) if (BX[i] <= (-2.418 - LON0) * KX) { I1 = i; break; }
+  const G = refine(-1e9, -1e9, 1e9, 1e9, 30, I0, I1).slice(), GC = cumOf(G), NG = G.length / 2;
+  const RULER0 = 40000, STEPS = 8;
+  const lines = [];
+  const lineAt = k => lines[k] || (lines[k] = divider(G, GC, 0, NG - 1, RULER0 / 2 ** k));
+
+  // ── Numbers ──
+  const unitOf = m => m >= 1000 ? ['km', 1000] : m >= 1 ? ['m', 1] : m >= .01 ? ['cm', .01] : ['mm', .001];
+  const decOf = x => { for (let d = 0; d < 7; d++) if (Math.abs(x * 10 ** d - Math.round(x * 10 ** d)) < 1e-7 * Math.max(1, x * 10 ** d)) return d; return 7; };
+  const num = (x, d) => { const [a, b] = x.toFixed(d).split('.'); return a.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (b ? '.' + b : ''); };
+  const digits = s => s.replace(/\d/g, '<i>$&</i>');
+  // The length is given in its own unit, to the precision the ruler can vouch for (a tenth of it).
+  function fmt(line) {
+    const [un, uf] = unitOf(line.r), L = line.n * line.r + line.rem, [lu, lf] = unitOf(L);
+    const ld = Math.max(0, Math.ceil(-Math.log10(line.r / 10 / lf) - 1e-9));
+    return { ruler: `${num(line.r / uf, decOf(line.r / uf))} ${un}`, seg: num(line.n, 0), len: `${num(L / lf, ld)} ${lu}` };
+  }
+  const setText = (el, s) => { if (el && el.dataset.v !== s) { el.dataset.v = s; el.innerHTML = digits(s); } };
+
+  // ── Geometry on screen ──
+  function clipPolygon(pts, x0, y0, x1, y1) {
+    const edges = [[0, x0, 1], [0, x1, -1], [1, y0, 1], [1, y1, -1]];
+    let poly = pts;
+    for (const [ax, v, sgn] of edges) {
+      const out = [], n = poly.length / 2; if (!n) break;
+      const inside = i => sgn * (poly[2 * i + ax] - v) >= 0;
+      for (let i = 0; i < n; i++) {
+        const j = (i + n - 1) % n, ci = inside(i), cj = inside(j);
+        if (ci !== cj) { const t = (v - poly[2 * j + ax]) / (poly[2 * i + ax] - poly[2 * j + ax]); out.push(poly[2 * j] + (poly[2 * i] - poly[2 * j]) * t, poly[2 * j + 1] + (poly[2 * i + 1] - poly[2 * j + 1]) * t); }
+        if (ci) out.push(poly[2 * i], poly[2 * i + 1]);
+      }
+      poly = out;
+    }
+    return poly;
+  }
+  function clipRuns(pts, x0, y0, x1, y1) {
+    const runs = []; let cur = null; const n = pts.length / 2;
+    for (let i = 0; i < n - 1; i++) {
+      const ax = pts[2 * i], ay = pts[2 * i + 1], dx = pts[2 * i + 2] - ax, dy = pts[2 * i + 3] - ay;
+      let t0 = 0, t1 = 1, ok = true;
+      const p = [-dx, dx, -dy, dy], q = [ax - x0, x1 - ax, ay - y0, y1 - ay];
+      for (let k = 0; k < 4; k++) {
+        if (p[k] === 0) { if (q[k] < 0) { ok = false; break; } }
+        else { const r = q[k] / p[k]; if (p[k] < 0) { if (r > t1) { ok = false; break; } if (r > t0) t0 = r; } else { if (r < t0) { ok = false; break; } if (r < t1) t1 = r; } }
+      }
+      if (!ok) { cur = null; continue; }
+      if (!cur || t0 > 0) { cur = [ax + dx * t0, ay + dy * t0]; runs.push(cur); }
+      cur.push(ax + dx * t1, ay + dy * t1);
+      if (t1 < 1) cur = null;
+    }
+    return runs;
+  }
+  const pathOf = runs => { const p = new Path2D(); for (const r of runs) { p.moveTo(r[0], r[1]); for (let i = 2; i < r.length; i += 2) p.lineTo(r[i], r[i + 1]); } return p; };
+  const polyPath = a => { const p = new Path2D(); for (let i = 0; i < a.length; i += 2) i ? p.lineTo(a[i], a[i + 1]) : p.moveTo(a[i], a[i + 1]); p.closePath(); return p; };
+  // Samples on the land: a lattice tied to the ruler (five to a ruler); when the ruler halves,
+  // the new samples grow in at the midpoints of the old.
+  function dots(g, v, w, h, sx, sy, sigA, sigB, p, size) {
+    const sf = Math.min(sigA, sigB); if (sf / v.mpp < 2.5) return;
+    const ia = Math.round(sigA / sf), ib = Math.round(sigB / sf);
+    const x0 = v.cx - w / 2 * v.mpp, x1 = v.cx + w / 2 * v.mpp, y0 = v.cy - h / 2 * v.mpp, y1 = v.cy + h / 2 * v.mpp;
+    const i0 = Math.ceil(x0 / sf), i1 = Math.floor(x1 / sf), j0 = Math.ceil(y0 / sf), j1 = Math.floor(y1 / sf);
+    if ((i1 - i0) * (j1 - j0) > 60000) return;
+    for (let i = i0; i <= i1; i++) {
+      const X = sx(i * sf), ma = i % ia === 0, mb = i % ib === 0;
+      for (let j = j0; j <= j1; j++) {
+        const inA = ma && j % ia === 0, inB = mb && j % ib === 0, z = size * (inA && inB ? 1 : inB ? p : inA ? 1 - p : 0);
+        if (z < .1) continue;
+        g.fillRect(X - z / 2, sy(j * sf) - z / 2, z, z);
+      }
+    }
+  }
+
+  // ── Palette ──
+  const COL = { ink: '#000', acc: '#000' };
+  function colors() {
+    const p = document.createElement('i'); p.style.cssText = 'position:absolute;visibility:hidden'; document.body.appendChild(p);
+    const read = v => { p.style.color = v; return getComputedStyle(p).color; };
+    COL.ink = read('var(--ink)'); COL.acc = read('var(--accent)'); p.remove();
+    dirty = true; plates.forEach(pl => pl.dirty = true); play();
+  }
+
+  // ── The land behind the page ──
+  // The view: from the whole coast at the top of the page to the ría at the bottom, zooming about
+  // the Bilbao point; its ruler: one step finer for every section.
+  const W0 = 100000, W1 = 3200;
+  const BG = { k: 0, line: null, fromX: null, fromY: null, p: 1, sigA: 0, sigB: 0 };
+  let VW = 0, VH = 0, DPR = 1, docMax = 1, pTgt = 0, pCam = 0, dirty = true;
+  function bgView(p) {
+    const e = p * p * (3 - 2 * p), Wv = W0 * Math.pow(W1 / W0, e), f = (Wv / W0) * (1 - e);
+    return { cx: T[0] + (C0[0] - T[0]) * f, cy: T[1] + (C0[1] - T[1]) * f, mpp: Wv / Math.max(VW, 1000) };
+  }
+  function drawLand(g, u, v) {
+    const w = VW, h = VH, mpp = v.mpp;
+    const sx = x => (x - v.cx) / mpp + w / 2, sy = y => h / 2 - (y - v.cy) / mpp;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); g.setTransform(u, 0, 0, u, 0, 0);
+    const B = [-40, -40, w + 40, h + 40];
+    // the land: the shape the dividers draw at this ruler, with the coast beyond Bizkaia as recorded
+    const [X, Y] = shown(BG), poly = [];
+    for (let i = 0; i <= I0; i++) poly.push(sx(BX[i]), sy(BY[i]));
+    for (let j = 1; j < X.length; j++) poly.push(sx(X[j]), sy(Y[j]));
+    for (let i = I1; i < NB; i++) poly.push(sx(BX[i]), sy(BY[i]));
+    poly.push(sx(BX[NB - 1]), sy(SOUTH), sx(BX[0]), sy(SOUTH));
+    const landPath = polyPath(clipPolygon(poly, ...B));
+    g.fillStyle = COL.ink; g.strokeStyle = COL.ink;
+    g.globalAlpha = .02; g.fill(landPath);
+    g.save(); g.clip(landPath); g.globalAlpha = .1; dots(g, v, w, h, sx, sy, BG.sigA, BG.sigB, easeOut(BG.p), 1.6); g.restore();
+    // the true edge, which the measure approaches
+    const P = refine(v.cx - (w / 2 + 40) * mpp, v.cy - (h / 2 + 40) * mpp, v.cx + (w / 2 + 40) * mpp, v.cy + (h / 2 + 40) * mpp, mpp);
+    const S = new Float64Array(P.length); for (let i = 0; i < P.length; i += 2) { S[i] = sx(P[i]); S[i + 1] = sy(P[i + 1]); }
+    g.globalAlpha = .1; g.lineWidth = 1; g.lineJoin = 'round'; g.stroke(pathOf(clipRuns(S, ...B)));
+    // the measured line and its vertices
+    const ln = []; for (let j = 0; j < X.length; j++) ln.push(sx(X[j]), sy(Y[j]));
+    ln.push(sx(BG.line.ex), sy(BG.line.ey));
+    g.globalAlpha = .12; g.lineWidth = 1.25; g.lineJoin = 'miter'; g.stroke(pathOf(clipRuns(ln, ...B)));
+    for (let j = 0; j < X.length; j++) { const x = ln[2 * j], y = ln[2 * j + 1]; if (x > -4 && x < w + 4 && y > -4 && y < h + 4) g.fillRect(x - 1.5, y - 1.5, 3, 3); }
+    g.globalAlpha = 1;
+  }
+
+  // ── Plates: one coral of the ladder each, here one scale of the same shore ──
+  // Ark: the whole coast, a 40 km ruler; Orion: 6 km of it, 2 km; Zenith: 60 m, 20 m; Atlas: 6 cm, 2 cm.
+  // Hover halves the ruler twice: detail earned, not shown at once.
+  const LV = [{ W: 100000, R: 40000 }, { W: 6000, R: 2000 }, { W: 60, R: 20 }, { W: .06, R: .02 }];
+  const plates = [...document.querySelectorAll('.plate')].map(el => {
+    const L = +el.dataset.level, c = el.querySelector('canvas');
+    const pl = { el, L, c, g: c.getContext('2d'), k: 0, line: null, p: 1, fromX: null, fromY: null, sigA: 0, sigB: 0, dirty: true, w: 0, h: 0, poly: null,
+      ro: { ruler: el.querySelector('[data-k="ruler"]'), len: el.querySelector('[data-k="len"]') } };
+    if (fine) {
+      el.addEventListener('pointerenter', () => setPlateK(pl, 2));
+      el.addEventListener('pointerleave', () => setPlateK(pl, 0));
+    }
+    return pl;
+  });
+  function plateView(pl) { const c = pl.L ? T : C0; return { cx: c[0], cy: c[1], mpp: LV[pl.L].W / pl.w }; }
+  function platePoly(pl) {                                                // the shore in the plate, and the stretch it measures
+    const v = plateView(pl), hw = pl.w / 2 * v.mpp, hh = pl.h / 2 * v.mpp;
+    const P = refine(v.cx - hw * 1.3, v.cy - hh * 1.3, v.cx + hw * 1.3, v.cy + hh * 1.3, v.mpp * .6).slice(), n = P.length / 2;
+    const scr = j => [(P[2 * j] - v.cx) / v.mpp + pl.w / 2, pl.h / 2 - (P[2 * j + 1] - v.cy) / v.mpp];
+    const inBox = (j, m) => { const [a, b] = scr(j); return a >= m && a <= pl.w - m && b >= m && b <= pl.h - m; };
+    let near = 0, nd = Infinity;
+    if (pl.L) for (let j = 0; j < n; j++) { const d = Math.hypot(P[2 * j] - T[0], P[2 * j + 1] - T[1]); if (d < nd) { nd = d; near = j; } }
+    let best = null;
+    for (let j = 0; j < n;) {
+      if (!inBox(j, -2)) { j++; continue; }
+      let e = j; while (e + 1 < n && inBox(e + 1, -2)) e++;
+      if (pl.L ? near >= j && near <= e : !best || e - j > best[1] - best[0]) best = [j, e];
+      j = e + 1;
+    }
+    let i0 = -1, i1 = -1, m = Math.min(pl.w, pl.h) * .07;
+    if (best) for (let j = best[0]; j <= best[1]; j++) if (inBox(j, m)) { if (i0 < 0) i0 = j; i1 = j; }
+    return { P, cum: cumOf(P), i0, i1 };
+  }
+  const plateLine = (pl, k) => { const q = pl.poly; return q.i0 >= 0 && q.i1 > q.i0 ? divider(q.P, q.cum, q.i0, q.i1, LV[pl.L].R / 2 ** k) : { X: [], Y: [], S: [], n: 0, rem: 0, ex: 0, ey: 0, r: LV[pl.L].R / 2 ** k }; };
+  function sizePlate(pl) {
+    const r = pl.c.getBoundingClientRect(); pl.w = r.width; pl.h = r.height;
+    pl.c.width = Math.round(pl.w * DPR); pl.c.height = Math.round(pl.h * DPR);
+    pl.poly = platePoly(pl); pl.line = plateLine(pl, pl.k); pl.fromX = null; pl.p = 1; pl.sigA = pl.sigB = pl.line.r / 5; pl.dirty = true;
+    const f = fmt(pl.line); setText(pl.ro.ruler, f.ruler); setText(pl.ro.len, f.len);
+  }
+  function setPlateK(pl, k) {
+    if (!pl.line || k === pl.k) return;
+    pl.k = k; retarget(pl, plateLine(pl, k));
+    const f = fmt(pl.line); setText(pl.ro.ruler, f.ruler); setText(pl.ro.len, f.len);
+    pl.dirty = true; play();
+  }
+  function drawPlate(pl) {
+    const g = pl.g, u = DPR, w = pl.w, h = pl.h, v = plateView(pl), mpp = v.mpp;
+    const sx = x => (x - v.cx) / mpp + w / 2, sy = y => h / 2 - (y - v.cy) / mpp;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, pl.c.width, pl.c.height); g.setTransform(u, 0, 0, u, 0, 0);
+    const P = pl.poly.P, S = new Float64Array(P.length); for (let i = 0; i < P.length; i += 2) { S[i] = sx(P[i]); S[i + 1] = sy(P[i + 1]); }
+    const B = [-20, -20, w + 20, h + 20];
+    // land: the full coast, south of the shore (the refined part is all that reaches the plate)
+    const full = Array.from(S); full.push(sx(BX[NB - 1]), sy(SOUTH), sx(BX[0]), sy(SOUTH));
+    const landPath = polyPath(clipPolygon(full, ...B)), shore = pathOf(clipRuns(S, ...B));
+    g.strokeStyle = COL.ink; g.fillStyle = COL.ink; g.lineJoin = 'round';
+    // three waterlines, the shore offset into the sea, as on an engraved chart
+    const lg = pl.lg || (pl.lg = document.createElement('canvas').getContext('2d'));
+    lg.canvas.width = pl.c.width; lg.canvas.height = pl.c.height; lg.setTransform(u, 0, 0, u, 0, 0);
+    lg.lineJoin = 'round'; lg.lineCap = 'round'; lg.strokeStyle = COL.ink;
+    for (const d of [14, 8, 3.5]) {
+      lg.globalCompositeOperation = 'source-over'; lg.lineWidth = 2 * d + 1; lg.stroke(shore);
+      lg.globalCompositeOperation = 'destination-out'; lg.lineWidth = 2 * d - 1; lg.stroke(shore);
+    }
+    lg.globalCompositeOperation = 'destination-out'; lg.fill(landPath); lg.globalCompositeOperation = 'source-over';
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = .3; g.drawImage(lg.canvas, 0, 0); g.restore();
+    g.save(); g.clip(landPath); g.globalAlpha = .55; dots(g, v, w, h, sx, sy, pl.sigA, pl.sigB, easeOut(pl.p), 1.6); g.restore();
+    g.globalAlpha = 1; g.lineWidth = 1; g.stroke(shore);
+    if (pl.line.X.length > 1) {
+      const [X, Y] = shown(pl);
+      g.strokeStyle = COL.acc; g.fillStyle = COL.acc; g.lineWidth = 1.5; g.lineJoin = 'miter';
+      g.beginPath(); X.forEach((x, j) => j ? g.lineTo(sx(x), sy(Y[j])) : g.moveTo(sx(x), sy(Y[j]))); g.stroke();
+      X.forEach((x, j) => g.fillRect(sx(x) - 2, sy(Y[j]) - 2, 4, 4));
+      g.setLineDash([2, 3]); g.lineWidth = 1.2; g.beginPath(); g.moveTo(sx(X[X.length - 1]), sy(Y[Y.length - 1])); g.lineTo(sx(pl.line.ex), sy(pl.line.ey)); g.stroke(); g.setLineDash([]);
+    }
+  }
+
+  // ── Which section is being read: the last one whose top has passed 45% of the screen ──
+  const secs = [...document.querySelectorAll('.sec')];
+  const RO = { ruler: document.querySelector('.ro [data-k="ruler"]'), seg: document.querySelector('.ro [data-k="seg"]'), len: document.querySelector('.ro [data-k="len"]') };
+  function sectionK() {
+    let k = 0; const line = innerHeight * .45;
+    secs.forEach((s, i) => { if (s.getBoundingClientRect().top < line) k = i; });
+    return Math.min(STEPS - 1, k);
+  }
+  function setBgK(k) {
+    if (BG.line && k === BG.k) return;
+    const line = lineAt(k);
+    if (!BG.line) { BG.line = line; BG.sigA = BG.sigB = line.r / 5; }
+    else retarget(BG, line);
+    BG.k = k; const f = fmt(line); setText(RO.ruler, f.ruler); setText(RO.seg, f.seg); setText(RO.len, f.len);
+  }
+
+  // ── The loop ──
+  let raf = 0, prevT = 0, shownOnce = false;
+  function frame(now) {
+    raf = 0;
+    const dt = prevT ? Math.min(64, now - prevT) : 16; prevT = now;
+    pCam = reduce ? pTgt : pCam + (pTgt - pCam) * (1 - Math.exp(-dt / 1000 * 4));
+    if (Math.abs(pTgt - pCam) < 1e-5) pCam = pTgt;
+    setBgK(sectionK()); reveal();
+    if (BG.p < 1) { BG.p = Math.min(1, BG.p + dt / 700); if (BG.p >= 1) { BG.fromX = null; BG.sigA = BG.sigB; } dirty = true; }
+    const key = pCam.toFixed(5) + BG.p + COL.ink;
+    if (dirty || key !== frame.key) { frame.key = key; dirty = false; drawLand(g0, DPR, bgView(pCam)); }
+    let platesMoving = false;
+    for (const pl of plates) {
+      if (pl.p < 1) { pl.p = Math.min(1, pl.p + dt / 520); if (pl.p >= 1) { pl.fromX = null; pl.sigA = pl.sigB; } pl.dirty = true; platesMoving = true; }
+      if (pl.dirty && pl.w > 0 && pl.line) { pl.dirty = false; drawPlate(pl); }
+    }
+    if (!shownOnce) { shownOnce = true; requestAnimationFrame(() => { land.classList.add('is-on'); root.classList.add('ready'); }); }
+    if (Math.abs(pTgt - pCam) > 1e-5 || BG.p < 1 || platesMoving) raf = requestAnimationFrame(frame);
+  }
+  function play() { if (!raf) raf = requestAnimationFrame(frame); }
+  const onScroll = () => { pTgt = Math.min(1, Math.max(0, scrollY / docMax)); play(); };
+  addEventListener('scroll', onScroll, { passive: true });
+  function measureScreen() {
+    VW = innerWidth; VH = innerHeight; DPR = Math.min(2, Math.max(1, devicePixelRatio || 1));
+    cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
+    document.querySelector('main').style.paddingTop = document.querySelector('.top').offsetHeight + 'px';
+    docMax = Math.max(1, document.documentElement.scrollHeight - VH);
+    plates.forEach(sizePlate);
+    dirty = true; onScroll();
+  }
+  addEventListener('resize', measureScreen);
+  new MutationObserver(colors).observe(root, { attributes: true, attributeFilter: ['style', 'class'] });
+
+  // ── Blocks arrive once, drawn in from their top edge, a beat apart within a section ──
+  // (Checked against the block's box on scroll: an element clipped to nothing never reports
+  // itself as intersecting, so an observer would wait forever.)
+  let pending = [];
+  [...secs, document.querySelector('.foot')].forEach(s => [...s.querySelectorAll('.b')].forEach((b, i) => { b.style.setProperty('--d', Math.min(i % 4, 3) * 50 + 'ms'); pending.push(b); }));
+  function reveal() {
+    if (!pending.length) return;
+    const lim = innerHeight * .94;
+    pending = pending.filter(b => { if (b.getBoundingClientRect().top < lim) { b.classList.add('in'); return false; } return true; });
+  }
+  if (reduce) document.querySelectorAll('.pill video').forEach(v => { v.removeAttribute('autoplay'); v.pause(); });
+
+  setBgK(0); colors(); measureScreen(); pCam = pTgt; reveal(); play();
+  document.fonts.ready.then(measureScreen);
+  addEventListener('load', measureScreen);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Woza Labs — Plain</title>
+<meta name="description" content="Woza is an applied science and engineering company. We develop proprietary technology for the hardest problems where industry meets the physical world.">
+<meta name="theme-color" content="#F6F5F1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20473%20474%22%3E%3Crect%20width%3D%22473%22%20height%3D%22474%22%20fill%3D%22%23EEE%22/%3E%3Cg%20transform%3D%22translate%280%2C474%29%20scale%280.1%2C-0.1%29%22%3E%3Cpath%20fill%3D%22%23111%22%20d%3D%22M2171%203828%20c6%20-24%2060%20-225%20120%20-448%20l109%20-405%20-78%20-77%20-77%20-77%20-99%2027%0Ac-54%2015%20-103%2034%20-107%2042%20-14%2025%20-240%20882%20-235%20888%208%207%20316%2090%20338%2091%2012%201%2021%0A-12%2029%20-41z%20m1389%20-523%20c0%20-5%20-221%20-230%20-490%20-500%20-270%20-269%20-490%20-493%20-490%0A-496%200%20-4%2081%20-308%20179%20-675%2099%20-368%20178%20-670%20176%20-672%20-6%20-7%20-340%20-92%20-348%0A-89%20-6%202%20-22%2048%20-37%20103%20-15%2054%20-82%20306%20-150%20559%20-68%20253%20-125%20462%20-127%20465%0A-2%202%20-192%20-184%20-421%20-413%20l-417%20-417%20-133%20132%20-132%20133%20417%20417%20c229%20229%20415%0A419%20413%20422%20-3%202%20-252%2070%20-555%20150%20-302%2081%20-557%20150%20-566%20154%20-14%206%20-11%2027%2031%0A182%2045%20166%2049%20175%2071%20172%2013%20-1%20318%20-82%20678%20-178%20l654%20-176%20496%20496%20496%20496%0A127%20-127%20c71%20-70%20128%20-132%20128%20-138z%20m-145%20-1021%20c242%20-65%20444%20-120%20448%20-124%0A7%20-6%20-76%20-346%20-86%20-357%20-3%20-2%20-900%20236%20-903%20240%20-1%201%20-14%2049%20-28%20106%20l-28%20104%0A73%2073%20c41%2041%2076%2074%2079%2074%203%200%20203%20-52%20445%20-116z%22/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preload" href="fonts/NeueMontreal-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Woza Labs — plain
+
+   The whole text of the site, in one column you can read from
+   top to bottom, with a list of its sections beside it. One face,
+   one weight. Hierarchy comes from size and from space alone:
+   no labels above headings, no rules, no boxes.
+   ───────────────────────────────────────────────────────────── */
+@font-face{
+  font-family:'Neue Montreal';
+  src:url('fonts/NeueMontreal-Regular.woff2') format('woff2');
+  font-weight:400;font-style:normal;font-display:swap;
+}
+:root{
+  /* light: every text colour clears 7:1 on the page */
+  --canvas:#F6F5F1;
+  --ink:#151514;        /* 16.8:1 */
+  --ink-2:#4F4E4A;      /*  7.6:1 */
+  --link:#1E5A47;       /*  7.4:1 */
+  --select:#D5E4DC;
+
+  --step:clamp(1.0625rem,.98rem + .22vw,1.1875rem);   /* body: 17 to 19 px */
+  --t-meta:.9375em;
+  --t-item:clamp(1.25rem,1.1rem + .45vw,1.5rem);
+  --t-h2:clamp(1.75rem,1.35rem + 1.5vw,2.625rem);
+  --t-h1:clamp(2.5rem,1.6rem + 3.6vw,4.75rem);
+  --gutter:clamp(1.5rem,5vw,4rem);
+  --gap-section:clamp(7rem,5rem + 8vh,11rem);
+  --toc-gap:clamp(3rem,10vh,6rem);
+  --toc-top:calc(2.75rem + 7.5rem * 537 / 3584 + var(--toc-gap));   /* where the list of sections begins; headings land here */
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --canvas:#121211;
+    --ink:#ECEBE6;      /* 15.7:1 */
+    --ink-2:#A8A7A1;    /*  7.8:1 */
+    --link:#8CC5AE;     /*  9.6:1 */
+    --select:#2C4A3F;
+  }
+}
+*,*::before,*::after{box-sizing:border-box;}
+html{background:var(--canvas);-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:var(--toc-top);}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{margin:0;background:var(--canvas);color:var(--ink);
+  font-family:'Neue Montreal','Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:400;font-synthesis:none;
+  font-size:var(--step);line-height:1.55;letter-spacing:0;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;}
+::selection{background:var(--select);color:var(--ink);}
+h1,h2,h3,p,ol,ul,dl,dd{margin:0;padding:0;}
+h1,h2,h3{font-weight:400;}
+ol,ul{list-style:none;}
+a{color:inherit;text-decoration:none;}
+:focus-visible{outline:2px solid var(--link);outline-offset:3px;border-radius:2px;}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;}
+
+/* links that do something are the one colour on the page */
+.act{color:var(--link);text-decoration-line:underline;text-decoration-thickness:1px;text-underline-offset:.22em;text-decoration-color:transparent;
+  transition:text-decoration-color 160ms ease;}
+/* links that name something stay in the text's own colour */
+.name{text-decoration-line:underline;text-decoration-thickness:1px;text-underline-offset:.2em;text-decoration-color:transparent;transition:text-decoration-color 160ms ease;}
+@media (hover:hover) and (pointer:fine){
+  .act:hover,.name:hover{text-decoration-color:currentColor;}
+}
+.act:focus-visible,.name:focus-visible{text-decoration-color:currentColor;}
+
+.skip{position:absolute;left:var(--gutter);top:1rem;z-index:30;padding:.5rem .75rem;background:var(--canvas);color:var(--link);transform:translateY(-200%);}
+.skip:focus{transform:none;}
+
+/* ── The page: a list of sections, and one column of text ─── */
+.page{max-width:76rem;margin:0 auto;padding:0 var(--gutter);display:grid;grid-template-columns:13rem minmax(0,1fr);column-gap:clamp(3rem,7vw,7.5rem);}
+.side{position:sticky;top:0;height:100svh;padding:2.75rem 0 2.5rem;display:flex;flex-direction:column;}
+.logo{display:block;width:7.5rem;color:var(--ink);}
+.logo svg{display:block;width:100%;height:auto;}
+.logo .mark__ast{fill:var(--canvas);}
+.menu{display:none;}
+.toc{margin-top:var(--toc-gap);}
+.toc ol{display:grid;gap:.55rem;}
+.toc a{color:var(--ink-2);transition:color 160ms ease;}
+@media (hover:hover) and (pointer:fine){ .toc a:hover{color:var(--ink);} }
+.toc a[aria-current]{color:var(--ink);}
+.side__foot{margin-top:auto;font-size:var(--t-meta);display:grid;gap:.3rem;}
+
+main{min-width:0;max-width:46rem;padding:var(--toc-top) 0 0;}
+section + section{margin-top:var(--gap-section);}
+
+h1{font-size:var(--t-h1);line-height:1.04;letter-spacing:-.03em;max-width:13em;text-wrap:balance;}
+h2{font-size:var(--t-h2);line-height:1.14;letter-spacing:-.016em;max-width:20em;text-wrap:balance;}
+h3{font-size:var(--t-item);line-height:1.25;letter-spacing:-.008em;text-wrap:balance;}
+p{max-width:36em;text-wrap:pretty;}
+.k{color:var(--ink-2);}
+.meta{font-size:var(--t-meta);line-height:1.45;color:var(--ink-2);}
+.meta .name{color:var(--ink-2);}
+@media (hover:hover) and (pointer:fine){ .meta .name:hover{color:var(--ink);} }
+.lead{font-size:var(--t-item);line-height:1.35;letter-spacing:-.008em;color:var(--ink-2);margin-top:1.25rem;max-width:28em;}
+.say{font-size:var(--t-item);line-height:1.3;letter-spacing:-.008em;}
+
+/* rhythm: everything is spaced from what comes before it */
+.flow > * + *{margin-top:1.25rem;}
+.flow > h2 + *{margin-top:1.25rem;}
+.flow > * + .items,.flow > .items + *{margin-top:3.5rem;}
+.flow > * + .say{margin-top:3rem;}
+.flow > .say + .actions{margin-top:1.25rem;}
+.flow > * + .actions{margin-top:2rem;}
+
+.items{display:grid;gap:2.25rem;}
+.items--two{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:2.5rem;row-gap:2.25rem;}
+.items--names{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:2.5rem;row-gap:1.25rem;}
+.items li{display:grid;gap:.35rem;align-content:start;}
+.items--names h3{font-size:var(--step);line-height:1.4;letter-spacing:0;}
+.items--three{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:.6rem;}
+.flow > .k + .items{margin-top:1.25rem;}
+.items--names li{gap:.05rem;}
+
+.actions{display:flex;flex-wrap:wrap;gap:.5rem 1.75rem;}
+.sectors{color:var(--ink-2);}
+
+/* ── Foot ──────────────────────────────────────────────────── */
+footer{margin-top:var(--gap-section);padding-bottom:3rem;font-size:var(--t-meta);color:var(--ink-2);display:grid;gap:1.75rem;max-width:46rem;}
+footer .row{display:flex;flex-wrap:wrap;gap:.35rem 1.5rem;}
+footer .name{color:var(--ink-2);}
+@media (hover:hover) and (pointer:fine){ footer .name:hover{color:var(--ink);} }
+footer [aria-current]{color:var(--ink);}
+
+/* ── Narrow screens: the list of sections folds into a bar ── */
+@media (max-width:64rem){
+  html{scroll-padding-top:5.75rem;}
+  .page{display:block;}
+  .side{position:sticky;top:0;z-index:20;height:auto;padding:0;margin:0 calc(var(--gutter) * -1);
+    background:color-mix(in srgb, var(--canvas) 88%, transparent);-webkit-backdrop-filter:blur(16px) saturate(1.1);backdrop-filter:blur(16px) saturate(1.1);}
+  .bar{display:flex;align-items:center;justify-content:space-between;height:3.75rem;padding:0 var(--gutter);}
+  .logo{width:6.5rem;}
+  .menu{display:block;padding:.6rem 0 .6rem 1rem;margin:-.6rem 0;color:var(--ink);transition:opacity 160ms ease;}
+  .menu:active{opacity:.6;}
+  .toc{position:absolute;left:0;right:0;top:100%;height:calc(100svh - 3.75rem);overflow:auto;overscroll-behavior:contain;margin:0;padding:.5rem var(--gutter) 2rem;background:var(--canvas);
+    opacity:0;transform:translateY(-.5rem);visibility:hidden;pointer-events:none;
+    transition:opacity 160ms ease, transform 160ms var(--ease-out), visibility 0s linear 160ms;}
+  .side.open .toc{opacity:1;transform:none;visibility:visible;pointer-events:auto;transition:opacity 220ms ease, transform 260ms var(--ease-out), visibility 0s;}
+  .toc ol{gap:.25rem;}
+  .toc a{display:block;padding:.45rem 0;font-size:var(--t-item);letter-spacing:-.008em;}
+  .side__foot{display:none;}
+  main{padding-top:clamp(3rem,12vh,6rem);}
+  .items--two{grid-template-columns:minmax(0,1fr);}
+}
+@media (max-width:30rem){
+  .items--names{grid-template-columns:minmax(0,1fr);}
+  .items--three{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (prefers-reduced-motion:reduce){
+  .toc,.side.open .toc{transform:none !important;}
+}
+@media (prefers-reduced-transparency:reduce){
+  .side{background:var(--canvas);-webkit-backdrop-filter:none;backdrop-filter:none;}
+}
+@media print{
+  .side{display:none;}
+  .page{display:block;}
+  main{padding-top:0;}
+  section + section{margin-top:3rem;}
+}
+</style>
+</head>
+<body>
+<a class="skip act" href="#main">Skip to the text</a>
+<div class="page" id="top">
+
+  <aside class="side">
+    <div class="bar">
+      <a class="logo" href="#top" aria-label="Woza Labs, back to the top"><svg viewBox="0 0 3584 537" fill="currentColor" aria-hidden="true"><g transform="translate(0,537) scale(0.1,-0.1)"><path d="M35012 5350 c-228 -61 -407 -244 -467 -475 -19 -76 -19 -231 0 -314
+25 -105 89 -216 176 -302 62 -63 93 -85 170 -122 52 -25 118 -50 147 -56 76
+-16 238 -14 307 4 195 50 381 214 449 398 50 132 56 270 20 412 -51 196 -219
+371 -431 446 -87 31 -273 36 -371 9z m281 -145 c92 -19 160 -58 238 -135 102
+-100 149 -212 149 -349 0 -42 -6 -99 -14 -127 -45 -168 -192 -315 -361 -359
+-310 -80 -625 165 -625 485 0 223 159 424 383 485 68 18 146 18 230 0z"/><path d="M34950 4720 l0 -300 65 0 64 0 3 103 3 102 65 0 65 0 53 -102 53
+-103 73 0 74 0 -60 116 -60 116 35 36 c44 45 57 78 57 142 0 86 -32 137 -105
+171 -34 16 -66 19 -212 19 l-173 0 0 -300z m307 190 c53 -32 57 -114 7 -161
+-22 -21 -35 -24 -102 -24 l-77 0 -3 89 c-2 49 -1 95 2 103 9 22 134 17 173 -7z"/><path d="M22780 3000 l0 -2350 305 0 305 0 0 2350 0 2350 -305 0 -305 0 0
+-2350z"/><path d="M27820 3000 l0 -2350 235 0 235 0 0 230 0 231 46 -58 c231 -291 651
+-443 1226 -443 492 0 827 116 1089 379 300 300 441 737 443 1376 1 351 -32
+597 -114 846 -145 443 -379 696 -760 823 -199 66 -359 89 -630 89 -217 0 -339
+-12 -510 -50 -253 -56 -407 -134 -567 -287 l-83 -79 0 822 0 821 -305 0 -305
+0 0 -2350z m1935 555 c221 -39 365 -109 470 -227 100 -114 191 -352 227 -595
+20 -138 17 -599 -5 -741 -67 -427 -207 -655 -465 -761 -156 -64 -289 -85 -527
+-84 -363 1 -594 72 -756 233 -64 63 -84 92 -127 180 -105 216 -152 472 -152
+825 0 412 67 701 211 905 102 146 320 249 586 279 123 14 429 6 538 -14z"/><rect width="4730" height="4740" fill="currentColor"/><path class="mark__ast" d="M2171 3828 c6 -24 60 -225 120 -448 l109 -405 -78 -77 -77 -77 -99 27
+c-54 15 -103 34 -107 42 -14 25 -240 882 -235 888 8 7 316 90 338 91 12 1 21
+-12 29 -41z m1389 -523 c0 -5 -221 -230 -490 -500 -270 -269 -490 -493 -490
+-496 0 -4 81 -308 179 -675 99 -368 178 -670 176 -672 -6 -7 -340 -92 -348
+-89 -6 2 -22 48 -37 103 -15 54 -82 306 -150 559 -68 253 -125 462 -127 465
+-2 2 -192 -184 -421 -413 l-417 -417 -133 132 -132 133 417 417 c229 229 415
+419 413 422 -3 2 -252 70 -555 150 -302 81 -557 150 -566 154 -14 6 -11 27 31
+182 45 166 49 175 71 172 13 -1 318 -82 678 -178 l654 -176 496 496 496 496
+127 -127 c71 -70 128 -132 128 -138z m-145 -1021 c242 -65 444 -120 448 -124
+7 -6 -76 -346 -86 -357 -3 -2 -900 236 -903 240 -1 1 -14 49 -28 106 l-28 104
+73 73 c41 41 76 74 79 74 3 0 203 -52 445 -116z"/><path d="M12565 4124 c-389 -30 -650 -109 -891 -270 -241 -161 -454 -491 -544
+-844 -96 -374 -99 -886 -8 -1275 130 -561 470 -919 1003 -1058 191 -50 298
+-62 575 -62 280 0 379 11 587 65 508 131 844 470 988 996 97 353 111 798 39
+1194 -61 334 -218 656 -414 850 -214 213 -510 343 -887 389 -93 12 -372 21
+-448 15z m320 -554 c360 -40 561 -168 696 -445 106 -217 139 -374 146 -691 7
+-302 -16 -489 -86 -696 -129 -382 -364 -553 -812 -589 -340 -28 -638 46 -818
+204 -94 82 -186 229 -244 394 -110 307 -112 866 -5 1203 128 400 346 572 793
+624 67 7 245 5 330 -4z"/><path d="M19149 4120 c-462 -26 -793 -147 -1000 -368 -195 -208 -295 -441
+-306 -719 l-6 -133 305 0 305 0 6 104 c10 175 71 315 176 407 25 22 87 60 136
+84 156 78 309 105 592 105 376 0 619 -65 753 -200 68 -70 129 -187 159 -305
+21 -82 45 -264 37 -272 -3 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983 -140
+-549 -128 -819 -334 -916 -699 -29 -107 -26 -418 4 -530 90 -331 332 -559 726
+-684 187 -60 301 -74 581 -75 219 -1 266 2 379 23 414 74 743 248 949 501 l37
+45 0 -267 0 -268 240 0 240 0 0 1043 c0 1068 -4 1226 -40 1440 -70 421 -286
+714 -631 855 -249 102 -693 155 -1110 132z m1161 -1932 c-1 -414 -128 -676
+-420 -867 -193 -127 -428 -191 -700 -191 -300 0 -539 71 -669 198 -93 92 -131
+187 -131 333 0 115 25 184 92 255 87 92 253 159 528 214 153 30 1189 177 1263
+179 l37 1 0 -122z"/><path d="M25369 4120 c-342 -19 -633 -97 -824 -221 -134 -87 -264 -229 -350
+-384 -82 -146 -135 -354 -135 -527 l0 -88 303 0 304 0 6 103 c15 243 109 394
+309 491 161 79 313 106 595 106 278 0 498 -39 638 -113 169 -90 271 -277 305
+-561 6 -54 9 -100 6 -103 -2 -3 -287 -38 -633 -79 -651 -77 -805 -99 -983
+-140 -538 -125 -799 -317 -906 -669 -26 -84 -28 -103 -28 -275 -1 -214 16
+-303 83 -444 50 -106 84 -154 167 -238 154 -156 387 -272 654 -327 310 -65
+722 -50 1020 35 286 83 556 244 707 423 l58 70 3 -265 2 -264 240 0 240 0 0
+1048 c0 641 -4 1101 -11 1187 -25 336 -86 542 -223 755 -154 238 -403 377
+-796 444 -192 33 -523 49 -751 36z m1161 -1928 c0 -390 -116 -652 -373 -841
+-184 -135 -411 -208 -682 -218 -467 -19 -778 125 -850 391 -24 89 -17 231 14
+303 63 143 242 234 596 304 149 29 1186 176 1258 178 l37 1 0 -118z"/><path d="M32865 4120 c-484 -27 -811 -140 -1029 -357 -116 -115 -185 -234
+-227 -388 -18 -66 -22 -108 -23 -240 -1 -186 11 -243 77 -370 74 -143 257
+-302 443 -386 161 -72 611 -186 1299 -329 173 -36 273 -68 365 -116 135 -70
+216 -153 241 -247 17 -64 6 -167 -25 -231 -35 -72 -137 -166 -228 -212 -156
+-79 -350 -108 -665 -101 -245 5 -343 19 -495 71 -119 41 -192 83 -276 161
+-127 117 -186 247 -198 439 l-7 106 -298 0 -299 0 0 -96 c0 -231 66 -459 187
+-641 50 -77 180 -212 262 -272 269 -199 666 -301 1176 -301 573 0 957 121
+1220 385 183 182 266 377 266 620 0 145 -20 239 -77 355 -39 79 -62 110 -133
+181 -138 138 -317 246 -537 322 -115 40 -427 114 -769 182 -258 52 -368 79
+-517 131 -207 72 -325 151 -374 250 -24 49 -26 63 -22 138 6 107 37 175 114
+245 137 126 355 181 709 181 189 0 300 -11 420 -41 319 -81 514 -313 515 -611
+l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
+-1349 365z"/><path d="M5713 4078 c7 -20 1058 -3359 1069 -3395 l9 -33 317 0 317 0 420
+1299 c231 715 421 1296 423 1293 2 -4 198 -587 435 -1297 l432 -1290 329 0
+330 0 553 1710 c304 941 553 1713 553 1718 0 4 -149 6 -332 5 l-332 -3 -395
+-1307 c-218 -719 -398 -1305 -400 -1302 -3 3 -202 591 -442 1307 l-436 1302
+-289 0 -288 0 -291 -885 c-159 -487 -350 -1069 -424 -1293 -73 -225 -137 -405
+-141 -400 -4 4 -165 564 -358 1243 -194 679 -359 1259 -367 1288 l-16 52 -340
+0 c-269 0 -340 -3 -336 -12z"/><path d="M14612 3823 l3 -268 983 -3 c540 -1 982 -4 982 -7 0 -3 -320 -391
+-712 -863 -392 -471 -753 -906 -803 -966 -49 -60 -174 -211 -277 -335 l-188
+-225 0 -253 0 -253 1420 0 1420 0 0 265 0 265 -1036 2 -1036 3 1006 1193 1006
+1193 0 259 0 260 -1385 0 -1385 0 2 -267z"/></g></svg></a>
+      <button class="menu" type="button" aria-expanded="false" aria-controls="toc">Contents</button>
+    </div>
+    <nav class="toc" id="toc" aria-label="Sections">
+      <ol>
+        <li><a href="#deployed">Deployed</a></li>
+        <li><a href="#ventures">Ventures</a></li>
+        <li><a href="#technology">Technology</a></li>
+        <li><a href="#research">Research</a></li>
+        <li><a href="#signals">Signals</a></li>
+        <li><a href="#team">Team</a></li>
+        <li><a href="#company">Company</a></li>
+        <li><a href="#deploy">Deploy</a></li>
+      </ol>
+    </nav>
+    <p class="side__foot"><a class="act" href="mailto:hello@wozalabs.com">hello@wozalabs.com</a></p>
+  </aside>
+
+  <main id="main">
+
+    <section id="thesis" class="flow" aria-labelledby="h-thesis">
+      <h1 id="h-thesis">Woza is an applied science and engineering company.</h1>
+      <p class="lead">We develop proprietary technology for the hardest problems where industry meets the physical world.</p>
+      <p>Industry leaders license it. We build new companies on it.</p>
+      <p class="say">Nothing starts from zero.</p>
+      <p class="actions"><a class="act" href="mailto:investors@wozalabs.com?subject=Investor%20deck%20request%20from%20%5Byour%20fund%5D">Request the investor deck</a><a class="act" href="#deployed">See it in operation</a></p>
+      <p class="sectors">Energy, forests, agriculture, territory.</p>
+    </section>
+
+    <section id="deployed" class="flow" aria-labelledby="h-deployed">
+      <h2 id="h-deployed">The next industrial capabilities are already here.</h2>
+      <p class="lead">Powered by Woza. Proven in operation.</p>
+      <ol class="items">
+        <li><h3>The grid that sees the storm coming.</h3><p class="meta"><a class="name" href="https://www.iberdrola.com" target="_blank" rel="noopener">Iberdrola</a>, energy, in operation</p></li>
+        <li><h3>Every asset. Every risk. One network.</h3><p class="meta"><a class="name" href="https://www.ufd.es" target="_blank" rel="noopener">UFD, Grupo Naturgy</a>, energy, in operation</p></li>
+        <li><h3>The ground becomes the proof.</h3><p class="meta"><a class="name" href="https://www.moeveglobal.com" target="_blank" rel="noopener">Moeve</a>, energy supply chain, in operation</p></li>
+        <li><h3>A forest inventory that never stands still.</h3><p class="meta"><a class="name" href="https://www.hazi.eus" target="_blank" rel="noopener">HAZI</a>, forests, in operation</p></li>
+        <li><h3>An entire territory. One operating system.</h3><p class="meta"><a class="name" href="https://azpilur.eus/es/" target="_blank" rel="noopener">Azpilur</a>, territory, in operation</p></li>
+        <li><h3>The field becomes the forecast.</h3><p class="meta"><a class="name" href="https://www.agrology.com/en/" target="_blank" rel="noopener">Agrology</a>, agriculture, in operation</p></li>
+        <li><h3>The whole agricultural picture.</h3><p class="meta"><a class="name" href="https://sima.ag/en/" target="_blank" rel="noopener">SIMA Earth</a>, agriculture, in operation</p></li>
+        <li><h3>A city that can steer its emissions.</h3><p class="meta"><a class="name" href="https://www.eve.eus/" target="_blank" rel="noopener">EVE, Ente Vasco de la Energía</a>, energy and cities, in operation</p></li>
+      </ol>
+      <p>These capabilities are already in operation. Some of our most advanced work remains under NDA.</p>
+      <p class="actions"><a class="act" href="mailto:hello@wozalabs.com?subject=Woza%20technology%20briefing">Request a technology briefing</a></p>
+    </section>
+
+    <section id="ventures" class="flow" aria-labelledby="h-ventures">
+      <h2 id="h-ventures">Our technology becomes new companies.</h2>
+      <p class="lead">Born at Woza. Built to stand on their own.</p>
+      <p>Each venture starts with proprietary technology and accumulated research. From that foundation, we build an independent company with a clear industry focus.</p>
+      <ul class="items">
+        <li><h3><a class="name" href="https://predicterra.com" target="_blank" rel="noopener">Predicterra</a></h3><p>Intelligence for energy assets, risk and operations.</p><p class="meta">Energy</p></li>
+        <li><h3><a class="name" href="https://hectareo.com" target="_blank" rel="noopener">Hectareo</a></h3><p>Land, production and risk. One operating system.</p><p class="meta">Agriculture</p></li>
+        <li><h3><a class="name" href="https://aboveforest.com" target="_blank" rel="noopener">AboveForest</a></h3><p>An entire forest. A digital twin down to the tree.</p><p class="meta">Forests</p></li>
+      </ul>
+      <p class="say">Nothing starts from zero.</p>
+      <p class="actions"><a class="act" href="#technology">Explore the technology behind them</a></p>
+    </section>
+
+    <section id="technology" class="flow" aria-labelledby="h-technology">
+      <h2 id="h-technology">One foundation. Every deployment. Every company.</h2>
+      <p class="lead">Proprietary software engines for the physical world, built from our own research and owned end to end.</p>
+      <p>Four engines. Working as one.</p>
+      <ol class="items items--two">
+        <li><h3>Ark</h3><p>Capture the signals.</p><p class="meta">Captures the data that describes a physical system.</p></li>
+        <li><h3>Orion</h3><p>Connect the pieces.</p><p class="meta">Fuses those signals into a unified model of assets, processes and constraints.</p></li>
+        <li><h3>Zenith</h3><p>Anticipate. Act.</p><p class="meta">Turns models into forecasts and forecasts into operational decisions.</p></li>
+        <li><h3>Atlas</h3><p>See the whole.</p><p class="meta">Brings the system into view, from individual assets to the relationships between them.</p></li>
+      </ol>
+      <h3>Different industries. A shared architecture.</h3>
+      <p>A forest, a power network and an agricultural territory have different dynamics. Our foundation gives us a common structure for modelling them, and for extending capabilities from one system to another.</p>
+      <p>Each deployment deepens the foundation. Each new company builds on what is already there.</p>
+      <p>More science. More engineering. More ambitious systems within reach.</p>
+      <p class="say">Nothing starts from zero.</p>
+      <p class="actions"><a class="act" href="#deployed">See it in operation</a></p>
+    </section>
+
+    <section id="research" class="flow" aria-labelledby="h-research">
+      <h2 id="h-research">Ahead of the ask.</h2>
+      <p class="lead">Our research agenda. Industry’s next capabilities.</p>
+      <p>We pursue industrial R&amp;D on our own agenda. We identify the challenges ahead and develop the protocols, scientific models and engineering methods to meet them, before industry asks.</p>
+      <ul class="items">
+        <li><h3><a class="name" href="https://www.forestlayer.com" target="_blank" rel="noopener">ForestLayer</a></h3><p>A common language for forest systems.</p><p class="meta">Protocol. A protocol that gives forest systems a shared structure.</p></li>
+        <li><h3><a class="name" href="https://www.agrilayer.com" target="_blank" rel="noopener">AgriLayer</a></h3><p>From crop cycle to chain of custody.</p><p class="meta">Protocol. A protocol connecting crop cycles, yield and provenance.</p></li>
+        <li><h3>Hectareo-Agri 3.8B</h3><p>An agricultural language model. Already in the field.</p><p class="meta">Model, in production. Two production deployments in Argentina.</p></li>
+        <li><h3>Spatial digital twins for vegetation risk in power grids</h3><p>Modelling vegetation risk across power networks.</p><p class="meta">Paper, FUTURED, 2023.</p></li>
+      </ul>
+      <p class="say">When it’s time to build, there is already science to build on.</p>
+      <p class="actions"><a class="act" href="mailto:hello@wozalabs.com?subject=Woza%20research%20briefing">Request a research briefing</a><a class="act" href="mailto:hello@wozalabs.com?subject=Industrial%20R%26D%20collaboration">Explore an R&amp;D collaboration</a></p>
+    </section>
+
+    <section id="signals" class="flow" aria-labelledby="h-signals">
+      <h2 id="h-signals">The work is getting noticed.</h2>
+      <p class="lead">In science. In industry. In the world.</p>
+      <ol class="items">
+        <li><h3><a class="name" href="https://www.edsoforsmartgrids.eu/success_cases/predicterra/" target="_blank" rel="noopener">Predicterra and UFD, ahead of the storm.</a></h3><p class="meta">E.DSO, 2026</p></li>
+        <li><h3><a class="name" href="https://science.data.nasa.gov/features-events/second-esa-nasa-workshop-ai-foundation-model-earth-observation" target="_blank" rel="noopener">AI foundation models for Earth observation.</a></h3><p class="meta">ESA–NASA, 2026</p></li>
+        <li><h3><a class="name" href="https://www.latitudemedia.com/news/iberdrola-turns-to-ai-for-power-line-resilience/" target="_blank" rel="noopener">The intelligence behind Iberdrola’s grid.</a></h3><p class="meta">Latitude Media, 2025</p></li>
+        <li><h3><a class="name" href="https://earthoutreachonair.withgoogle.com/events/geoforgood25-nyc" target="_blank" rel="noopener">Our forest digital twin at Geo for Good.</a></h3><p class="meta">Google, 2025</p></li>
+        <li><h3><a class="name" href="https://www.euronews.com/2025/08/02/city-streets-tech-towers-and-electric-docks-heres-how-biscay-is-adapting-to-climate-" target="_blank" rel="noopener">Bizkaia prepares for a changing climate.</a></h3><p class="meta">Euronews, 2025</p></li>
+        <li><h3><a class="name" href="https://www.corriere.it/pianeta2030/25_dicembre_03/bilbao-diventa-laboratorio-europeo-sostenibilita-navi-elettrificate-e" target="_blank" rel="noopener">Bilbao, Europe’s sustainability lab.</a></h3><p class="meta">Corriere della Sera, 2025</p></li>
+        <li><h3><a class="name" href="https://www.iberdrola.com/sala-comunicacion/noticias/detalle/iberdrola-alia-startup-vasca-woza-blindar-lineas-electricas" target="_blank" rel="noopener">An alliance after the PERSEO challenge win.</a></h3><p class="meta">Iberdrola, 2022</p></li>
+      </ol>
+      <p class="actions"><a class="act" href="mailto:hello@wozalabs.com?subject=Woza%20technology%20briefing">Request a technology briefing</a><a class="act" href="mailto:investors@wozalabs.com?subject=Investor%20deck%20request%20from%20%5Byour%20fund%5D">Request the investor deck</a></p>
+    </section>
+
+    <section id="team" class="flow" aria-labelledby="h-team">
+      <h2 id="h-team">Small by design. Our technology turns every engineer into a team.</h2>
+      <ul class="items items--names">
+        <li><h3><a class="name" href="https://www.linkedin.com/in/sebastian-priolo/" target="_blank" rel="noopener">Sebastian Priolo</a></h3><p class="meta">Co-founder &amp; CEO</p></li>
+        <li><h3><a class="name" href="https://www.linkedin.com/in/fernandotadakuma/" target="_blank" rel="noopener">Fernando Tadakuma</a></h3><p class="meta">Co-founder &amp; CDO</p></li>
+        <li><h3><a class="name" href="https://www.linkedin.com/in/federico-hasicic-69750761/" target="_blank" rel="noopener">Federico Hasicic</a></h3><p class="meta">CRSO</p></li>
+        <li><h3><a class="name" href="https://www.linkedin.com/in/pablo-grotto-238b04ba/" target="_blank" rel="noopener">Pablo Grotto</a></h3><p class="meta">CTO</p></li>
+        <li><h3><a class="name" href="https://www.linkedin.com/in/asier-rosa/" target="_blank" rel="noopener">Asier Rosa</a></h3><p class="meta">Earth System Engineer</p></li>
+        <li><h3><a class="name" href="https://www.linkedin.com/in/unaxgomez/" target="_blank" rel="noopener">Unax Gómez</a></h3><p class="meta">Design Engineer</p></li>
+        <li><h3><a class="name" href="https://www.linkedin.com/in/marianacfernandez/" target="_blank" rel="noopener">Mariana Fernández</a></h3><p class="meta">Earth System Engineer</p></li>
+        <li><h3><a class="name" href="https://www.linkedin.com/in/ane-mugarza-822805231/" target="_blank" rel="noopener">Ane Mugarza</a></h3><p class="meta">Earth System Engineer</p></li>
+        <li><h3><a class="name" href="https://www.linkedin.com/in/martin-t-34b18420/" target="_blank" rel="noopener">Martin Tanielian</a></h3><p class="meta">Earth System Engineer</p></li>
+        <li><h3><a class="name" href="https://www.linkedin.com/in/federiconery/" target="_blank" rel="noopener">Federico Nery</a></h3><p class="meta">Earth System Engineer</p></li>
+      </ul>
+      <p class="say">Always looking for the few who want to build what comes next.</p>
+      <p class="actions"><a class="act" href="mailto:hello@wozalabs.com?subject=Join%20Woza">Join the team</a></p>
+    </section>
+
+    <section id="company" class="flow" aria-labelledby="h-company">
+      <h2 id="h-company">We shape what endures.</h2>
+      <p class="lead">Deployed at national scale. Recognised across industries. Operating in Europe and the Americas.</p>
+      <p class="k">A research and engineering company trusted by</p>
+      <ul class="items items--names items--three">
+        <li><a class="name" href="https://cloud.google.com/partners" target="_blank" rel="noopener">Google Cloud Partner</a></li>
+        <li><a class="name" href="https://www.iberdrola.com" target="_blank" rel="noopener">Iberdrola</a></li>
+        <li><a class="name" href="https://www.moeveglobal.com" target="_blank" rel="noopener">Moeve</a></li>
+        <li><a class="name" href="https://www.beaz.bizkaia.eus" target="_blank" rel="noopener">Bizkaia, BEAZ</a></li>
+        <li><a class="name" href="https://partner.microsoft.com" target="_blank" rel="noopener">Microsoft Partner</a></li>
+        <li><a class="name" href="https://www.hazi.eus" target="_blank" rel="noopener">HAZI</a></li>
+        <li><a class="name" href="https://www.icex.es" target="_blank" rel="noopener">ICEX</a></li>
+        <li><a class="name" href="https://www.digitalocean.com" target="_blank" rel="noopener">DigitalOcean</a></li>
+        <li><a class="name" href="https://www.santanderx.com" target="_blank" rel="noopener">Santander X</a></li>
+        <li><a class="name" href="https://bind.spri.eus" target="_blank" rel="noopener">BIND</a></li>
+        <li><a class="name" href="https://www.gobe.studio" target="_blank" rel="noopener">Gobe</a></li>
+        <li><a class="name" href="https://www.ufd.es" target="_blank" rel="noopener">UFD, Grupo Naturgy</a></li>
+      </ul>
+      <ul class="items items--two">
+        <li><h3>Recognition</h3><p class="meta">Iberdrola Perseo, winner<br>Moeve Light Up, selected<br>BIND 4.0, winner</p></li>
+        <li><h3>Offices</h3><p class="meta">Bilbao, BAT, Gran Vía 1<br>Donostia–San Sebastián, Parke Mikeletegi 53</p></li>
+      </ul>
+      <p class="actions"><a class="act" href="#deploy">Deploy with us</a><a class="act" href="mailto:investors@wozalabs.com?subject=Investor%20deck%20request%20from%20%5Byour%20fund%5D">Request the investor deck</a></p>
+    </section>
+
+    <section id="deploy" class="flow" aria-labelledby="h-deploy">
+      <h2 id="h-deploy">Build what your industry will depend on next.</h2>
+      <p class="lead">We work with leaders who have the ambition to change an industry, the authority to make it happen and the capital to see it through.</p>
+      <p>Two ways to build with Woza.</p>
+      <ol class="items items--two">
+        <li><h3>Deploy</h3><p>A new capability inside your operation.</p><p class="meta">From applied R&amp;D to engineering, deployment and operation.</p></li>
+        <li><h3>Venture</h3><p>A new company built on our technology.</p><p class="meta">Your industry insight and capital. Our proprietary foundations. A business built together.</p></li>
+      </ol>
+      <p class="say">We choose our work for what it can change.</p>
+      <p class="actions"><a class="act" href="mailto:hello@wozalabs.com?subject=Build%20with%20Woza">Build with Woza</a></p>
+    </section>
+
+    <footer>
+      <p>Deep tech for the physical economy. Creators of <a class="name" href="https://predicterra.com">Predicterra</a>, <a class="name" href="https://hectareo.com">Hectareo</a> and <a class="name" href="https://aboveforest.com">AboveForest</a>.</p>
+      <p class="row"><a class="act" href="mailto:hello@wozalabs.com">hello@wozalabs.com</a><a class="act" href="mailto:investors@wozalabs.com">investors@wozalabs.com</a><a class="name" href="tel:+34965023145">EU +34 965 02 31 45</a><a class="name" href="tel:+19296677718">US +1 929 667 7718</a></p>
+      <p class="row"><a class="name" href="https://blog.wozalabs.com">Blog</a><a class="name" href="https://www.linkedin.com/company/wozalabs/">LinkedIn</a><a class="name" href="https://x.com/wozalabs">X</a><a class="name" href="https://www.wozalabs.com/privacy-policy">Privacy</a><a class="name" href="https://www.wozalabs.com/legal-notice">Legal</a></p>
+      <nav class="row" aria-label="Versions of this prototype"><span>Versions</span><a class="name" href="index.html">Current</a><a class="name" href="walk.html">New</a><a class="name" href="nave.html">Nave</a><a class="name" href="coral.html">Reef</a><a class="name" href="coast.html">Coast</a><a class="name" href="shore.html">Shore</a><a class="name" href="graft.html">Graft</a><a class="name" href="plain.html" aria-current="page">Plain</a><a class="name" href="portico.html">Portico</a><a class="name" href="atrium.html">Atrium</a></nav>
+    </footer>
+  </main>
+</div>
+
+<script>
+/* Two small things: the list of sections knows where you are, and on a
+   narrow screen it opens from the bar and closes as soon as it is used. */
+(() => {
+  const side = document.querySelector('.side'), btn = document.querySelector('.menu'), toc = document.getElementById('toc');
+  const links = [...toc.querySelectorAll('a')], secs = links.map(a => document.getElementById(a.hash.slice(1)));
+  let cur = null;
+  function spy() {
+    const line = innerHeight * .3, atEnd = innerHeight + scrollY >= document.documentElement.scrollHeight - 4;
+    let i = -1;
+    secs.forEach((s, k) => { if (s.getBoundingClientRect().top <= line) i = k; });
+    if (atEnd) i = secs.length - 1;
+    const next = i >= 0 ? links[i] : null;
+    if (next === cur) return;
+    if (cur) cur.removeAttribute('aria-current');
+    if (next) next.setAttribute('aria-current', 'location');
+    cur = next;
+  }
+  let ticking = false;
+  addEventListener('scroll', () => { if (ticking) return; ticking = true; requestAnimationFrame(() => { ticking = false; spy(); }); }, { passive: true });
+  addEventListener('resize', spy);
+  spy();
+
+  const open = (v, byKey) => {
+    side.classList.toggle('open', v); btn.setAttribute('aria-expanded', String(v));
+    btn.textContent = v ? 'Close' : 'Contents';
+    if (v && byKey) links[0].focus({ preventScroll: true });            // the keyboard goes straight into the list
+  };
+  btn.addEventListener('click', e => open(btn.getAttribute('aria-expanded') !== 'true', e.detail === 0));
+  toc.addEventListener('click', e => { if (e.target.closest('a') && btn.getAttribute('aria-expanded') === 'true') open(false); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true') { open(false); btn.focus(); } });
+  document.addEventListener('pointerdown', e => { if (btn.getAttribute('aria-expanded') === 'true' && !side.contains(e.target)) open(false); });
+})();
+</script>
+</body>
+</html>
