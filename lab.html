@@ -138,6 +138,16 @@ html.js .b.in::after{transform:scaleY(1);}
 .seg button[aria-checked="true"]::before{transform:scale(1);margin-right:0;}
 .seg button:active{transform:scale(.97);}
 @media (hover:hover) and (pointer:fine){ .seg button:hover{background-image:var(--dith);image-rendering:pixelated;color:var(--ink);} }
+.sw{display:flex;flex-wrap:wrap;gap:.5em;align-items:center;min-height:1.95em;padding-top:.05em;}
+.sw button,.pick{position:relative;width:1.3em;height:1.3em;border-radius:50%;background:var(--sc);flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);
+  transition:transform 160ms var(--ease-out),box-shadow 160ms ease;}
+.sw button[aria-checked="true"],.pick.on{box-shadow:0 0 0 2px var(--canvas),0 0 0 3px var(--ink);}
+.sw button:active,.pick:active{transform:scale(.92);}
+@media (hover:hover) and (pointer:fine){ .sw button:hover,.pick:hover{transform:scale(1.14);} }
+.pick{background:conic-gradient(from 90deg,#b0502c,#b68a2c,#56664a,#2f6274,#2e46a3,#7a5c99,#b0502c);cursor:pointer;}
+.pick.on{background:var(--sc);}
+.pick input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0;}
+.pick:focus-within{outline:1.5px solid var(--ink);outline-offset:4px;}
 .rng{display:flex;align-items:center;gap:.7em;height:1.95em;}
 .rng output{font-size:var(--t-small);font-variant-numeric:tabular-nums;color:var(--ink);min-width:3.4em;text-align:right;}
 input[type=range]{flex:1;min-width:0;-webkit-appearance:none;appearance:none;background:transparent;height:22px;margin:0;cursor:pointer;}
@@ -202,7 +212,7 @@ html.no-gl .spec .art{display:grid;place-items:center;color:var(--ink-3);}
   .stage.focus > .b.on{grid-column:1 / -1;grid-row:1 / -1;}
   .stage.focus > .b.on::before{display:none;}
   .foot{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));border-top:1px solid var(--rule);position:relative;z-index:4;}
-  .foot .now{grid-column:span 3;}
+  .foot .now{grid-column:span 2;}
   .foot .now::after{display:none;}
   .foot .now::before{display:none;}
   .foot .pre{grid-column:span 1;}
@@ -317,7 +327,7 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
       <div class="ver">
         <button class="pill" type="button" aria-expanded="false" aria-controls="ver-menu">Versions</button>
         <nav class="ver__menu" id="ver-menu" aria-label="Versions of this prototype">
-          <a href="index.html">Current</a><a href="walk.html">New</a><a href="nave.html">Nave</a><a href="coral.html">Reef</a><a href="coast.html">Coast</a><a href="shore.html">Shore</a><a href="graft.html">Graft</a><a href="plain.html">Plain</a><a href="portico.html">Portico</a><a href="atrium.html">Atrium</a><a href="lab.html" aria-current="page">Lab</a>
+          <a href="index.html">Current</a><a href="walk.html">New</a><a href="nave.html">Nave</a><a href="coral.html">Reef</a><a href="coast.html">Coast</a><a href="shore.html">Shore</a><a href="graft.html">Graft</a><a href="plain.html">Plain</a><a href="portico.html">Portico</a><a href="atrium.html">Atrium</a><a href="atrium-ii.html">Atrium II</a><a href="lab.html" aria-current="page">Lab</a>
         </nav>
       </div>
     </div>
@@ -358,6 +368,7 @@ l0 -78 297 0 296 0 -6 118 c-16 312 -124 560 -333 767 -279 276 -733 399
     <button class="b pre" type="button" data-p="woodcut" aria-pressed="false"><i aria-hidden="true"></i><span>Woodcut</span></button>
     <button class="b pre" type="button" data-p="sketch" aria-pressed="false"><i aria-hidden="true"></i><span>Sketch</span></button>
     <button class="b pre" type="button" data-p="poster" aria-pressed="false"><i aria-hidden="true"></i><span>Poster</span></button>
+    <button class="b pre" type="button" data-p="riso" aria-pressed="false"><i aria-hidden="true"></i><span>Riso</span></button>
     <button class="b pre" type="button" data-p="ghost" aria-pressed="false"><i aria-hidden="true"></i><span>Ghost</span></button>
   </footer>
 </div>
@@ -790,8 +801,8 @@ const Lab = (() => {
   precision highp float;
   uniform sampler2D uT0, uT1, uAt;
   uniform vec4 uVp;
-  uniform vec3 uBg, uInk;
-  uniform float uMode, uG, uDen, uFill, uSh, uFA, uShA, uGlyph, uCh, uNr, uNa, uHid;
+  uniform vec3 uBg, uInk, uShC;
+  uniform float uMode, uG, uDen, uFill, uSh, uFA, uShA, uGlyph, uCh, uNr, uNa, uHid, uShK;
   out vec4 o;
   float b2(vec2 a){ a = floor(a); return fract(a.x / 2.0 + a.y * a.y * .75); }
   float b4(vec2 a){ return b2(.5 * a) * .25 + b2(a); }
@@ -827,7 +838,7 @@ const Lab = (() => {
     float m = A.g;
     bool ink = uFill > 1.5 && uFill < 2.5;
     vec3 fc = uFill < .5 ? uBg : (uFill < 1.5 ? mix(uBg, uInk, .1) : uInk);
-    vec3 shc = ink ? uBg : uInk, lc = ink && m > .5 ? uBg : uInk;
+    vec3 gc = uShK > .5 ? uShC : uInk, shc = uShK > .5 ? uShC : (ink ? uBg : uInk), lc = ink && m > .5 ? uBg : uInk;
     vec4 acc = vec4(0.0);
     acc = over(vec4(fc, 1.0) * m * (uFill < .5 ? 1.0 : uFA), acc);
     float vo = (ink ? (1.0 - A.r) * .7 : A.r) * uDen * uSh, vg = A.b * uDen * uSh;
@@ -840,10 +851,10 @@ const Lab = (() => {
       float v = cin ? (ink ? (1.0 - C.r) * .7 : C.r) * uDen * uSh : C.b * uDen * uSh * .7;
       float g = glyph(floor(clamp(v, 0.0, 1.0) * (uNr - 1.0) + .5), lo, cs);
       so = cin ? g : 0.0; sg = cin ? 0.0 : g;
-      shc = cin ? shc : uInk;
+      shc = cin ? shc : gc;
     } else { so = pat(vo, q) * m; sg = pat(vg, q) * (1.0 - m); }
     acc = over(vec4(shc, 1.0) * so * uShA, acc);
-    acc = over(vec4(uInk, 1.0) * sg * uShA, acc);
+    acc = over(vec4(gc, 1.0) * sg * uShA, acc);
     acc = over(vec4(uInk, 1.0) * A.a * .55, acc);
     if (uGlyph > .5) {
       // the lines set in characters: where a line crosses the middle of a place, its direction picks the stroke
@@ -1056,7 +1067,7 @@ const Lab = (() => {
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, T.t0); gl.uniform1i(Q.u.uT0, 0);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, T.t1); gl.uniform1i(Q.u.uT1, 1);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, atlas); gl.uniform1i(Q.u.uAt, 2);
-      gl.uniform3fv(Q.u.uBg, S.bg); gl.uniform3fv(Q.u.uInk, S.ink);
+      gl.uniform3fv(Q.u.uBg, S.bg); gl.uniform3fv(Q.u.uInk, S.ink); gl.uniform3fv(Q.u.uShC, S.shc || S.ink); gl.uniform1f(Q.u.uShK, S.shc ? 1 : 0);
       gl.uniform1f(Q.u.uMode, S.mode); gl.uniform1f(Q.u.uG, S.grain); gl.uniform1f(Q.u.uDen, S.den);
       gl.uniform1f(Q.u.uFill, S.fill); gl.uniform1f(Q.u.uShA, S.shA); gl.uniform1f(Q.u.uGlyph, S.stroke === 4 ? 1 : 0);
       gl.uniform1f(Q.u.uCh, S.charH); gl.uniform1f(Q.u.uNr, atlas ? atlas.nr : 1); gl.uniform1f(Q.u.uNa, atlas ? atlas.na : 1);
@@ -1378,6 +1389,7 @@ const Specimens = (() => {
       { k: 'shade', label: 'Pattern', o: [['dither', 'Dither'], ['stipple', 'Stipple'], ['halftone', 'Halftone'], ['hatch', 'Hatch'], ['ascii', 'ASCII'], ['bands', 'Bands'], ['soft', 'Wash'], ['none', 'None']] },
       { k: 'grain', label: 'Grain', min: 1, max: 8, step: 1, fmt: v => v + ' px', when: s => !['none', 'bands', 'soft'].includes(s.shade) || s.stroke === 'glyph' },
       { k: 'density', label: 'Density', min: 0, max: 1, step: .01, fmt: v => Math.round(v * 100) + '%', when: s => s.shade !== 'none' },
+      { k: 'color', label: 'Colour', sw: [['ink', 'Ink'], ['#56664a', 'Moss'], ['#b68a2c', 'Ochre'], ['#b0502c', 'Rust'], ['#2f6274', 'Sea'], ['#2e46a3', 'Ultramarine'], ['#e8432e', 'Vermilion']], when: s => s.shade !== 'none' },
       { k: 'tone', label: 'Tone', o: [['flat', 'Two values'], ['graded', 'Graded']], when: s => s.shade !== 'none' },
       { k: 'chars', label: 'Characters', o: [['ramp', '.:-=+*#%@'], ['woza', 'woza labs'], ['binary', '0 1'], ['signs', '· + × #']], when: s => s.shade === 'ascii' || s.stroke === 'glyph' }
     ] },
@@ -1401,12 +1413,13 @@ const Specimens = (() => {
     ] }
   ];
   const ITEMS = SPEC.flatMap(g => g.items), BY = Object.fromEntries(ITEMS.map(c => [c.k, c]));
-  const DEF = { shade: 'dither', grain: 2, density: .62, tone: 'flat', chars: 'ramp', stroke: 'solid', weight: 1, edges: 'contours', hidden: false,
+  const DEF = { shade: 'dither', grain: 2, density: .62, color: 'ink', tone: 'flat', chars: 'ramp', stroke: 'solid', weight: 1, edges: 'contours', hidden: false,
     cast: true, sun: 153, height: 38, ground: 'none', fill: 'paper', view: 'axo', turn: .3, canvas: 'light' };
-  const PRESETS = [{"id":"atrium","name":"Atrium","s":{}},{"id":"engraving","name":"Engraving","s":{"shade":"hatch","grain":2,"density":0.85,"tone":"graded","weight":0.9}},{"id":"halftone","name":"Halftone","s":{"shade":"halftone","grain":3,"density":0.72,"tone":"graded","fill":"tint","edges":"outline","weight":1.3}},{"id":"terminal","name":"Terminal","s":{"shade":"ascii","grain":2,"density":1,"tone":"graded","chars":"ramp","stroke":"glyph","canvas":"dark"}},{"id":"drafting","name":"Drafting","s":{"shade":"none","edges":"facets","hidden":true,"ground":"grid","cast":false,"weight":0.8}},{"id":"woodcut","name":"Woodcut","s":{"shade":"hatch","grain":2,"density":0.9,"tone":"graded","fill":"ink","weight":1}},{"id":"sketch","name":"Sketch","s":{"shade":"stipple","grain":1,"density":0.5,"tone":"graded","stroke":"sketch","weight":0.9}},{"id":"poster","name":"Poster","s":{"shade":"bands","density":0.9,"tone":"graded","stroke":"none","fill":"tint"}},{"id":"ghost","name":"Ghost","s":{"shade":"none","fill":"clear","edges":"facets","view":"persp","ground":"disc","weight":0.7}}].map(p => ({ ...p, s: { ...DEF, ...p.s } }));
+  const PRESETS = [{"id":"atrium","name":"Atrium","s":{}},{"id":"engraving","name":"Engraving","s":{"shade":"hatch","grain":2,"density":0.85,"tone":"graded","weight":0.9}},{"id":"halftone","name":"Halftone","s":{"shade":"halftone","grain":3,"density":0.72,"tone":"graded","fill":"tint","edges":"outline","weight":1.3}},{"id":"terminal","name":"Terminal","s":{"shade":"ascii","grain":2,"density":1,"tone":"graded","chars":"ramp","stroke":"glyph","canvas":"dark"}},{"id":"drafting","name":"Drafting","s":{"shade":"none","edges":"facets","hidden":true,"ground":"grid","cast":false,"weight":0.8}},{"id":"woodcut","name":"Woodcut","s":{"shade":"hatch","grain":2,"density":0.9,"tone":"graded","fill":"ink","weight":1}},{"id":"sketch","name":"Sketch","s":{"shade":"stipple","grain":1,"density":0.5,"tone":"graded","stroke":"sketch","weight":0.9}},{"id":"poster","name":"Poster","s":{"shade":"bands","density":0.9,"tone":"graded","stroke":"none","fill":"tint"}},{"id":"riso","name":"Riso","s":{"shade":"halftone","grain":3,"density":0.82,"tone":"graded","color":"#2e46a3","edges":"outline","weight":1.1}},{"id":"ghost","name":"Ghost","s":{"shade":"none","fill":"clear","edges":"facets","view":"persp","ground":"disc","weight":0.7}}].map(p => ({ ...p, s: { ...DEF, ...p.s } }));
   const KEYS = Object.keys(DEF);
   const valid = (k, v) => {
     const c = BY[k]; if (!c) return undefined;
+    if (c.sw) { const h = String(v).toLowerCase(); return h === 'ink' || /^#[0-9a-f]{6}$/.test(h) ? h : undefined; }
     if (c.o) { const hit = c.o.find(([x]) => String(x) === String(v)); return hit ? hit[0] : undefined; }
     const n = Number(v); return Number.isFinite(n) ? clamp(Number((Math.round(n / c.step) * c.step).toFixed(3)), c.min, c.max) : undefined;
   };
@@ -1426,11 +1439,23 @@ const Specimens = (() => {
     sec.innerHTML = `<p class="lbl"><span class="num">0${gi + 1}</span><b>${g.g}</b></p>`;
     for (const c of g.items) {
       const row = document.createElement('div'); row.className = 'ctl'; const id = 'c-' + c.k;
-      row.innerHTML = c.o
+      row.innerHTML = c.sw
+        ? `<p class="ctl__k" id="${id}">${c.label}</p><div class="sw" role="radiogroup" aria-labelledby="${id}">${c.sw.map(([v, t]) => `<button type="button" role="radio" aria-checked="false" tabindex="-1" data-v="${v}" aria-label="${t}" title="${t}" style="--sc:${v === 'ink' ? 'var(--ink)' : v}"></button>`).join('')}<label class="pick" title="Any colour"><input type="color" value="#7a5c99" aria-label="Any colour"></label></div>`
+        : c.o
         ? `<p class="ctl__k" id="${id}">${c.label}</p><div class="seg" role="radiogroup" aria-labelledby="${id}">${c.o.map(([v, t]) => `<button type="button" role="radio" aria-checked="false" tabindex="-1" data-v="${v}">${t}</button>`).join('')}</div>`
         : `<label class="ctl__k" for="${id}">${c.label}</label><div class="rng"><input type="range" id="${id}" min="${c.min}" max="${c.max}" step="${c.step}"><output for="${id}"></output></div>`;
       sec.append(row); rows[c.k] = row;
-      if (c.o) {
+      if (c.sw) {
+        const btns = $$('button', row), inp = $('input', row);
+        btns.forEach((btn, i) => {
+          btn.addEventListener('click', () => set(c.k, c.sw[i][0]));
+          btn.addEventListener('keydown', e => {
+            const d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]; if (!d) return;
+            e.preventDefault(); const j = (i + d + btns.length) % btns.length; set(c.k, c.sw[j][0]); btns[j].focus();
+          });
+        });
+        inp.addEventListener('input', () => set(c.k, valid(c.k, inp.value)));
+      } else if (c.o) {
         const btns = $$('button', row);
         btns.forEach((btn, i) => {
           btn.addEventListener('click', () => set(c.k, c.o[i][0]));
@@ -1452,7 +1477,11 @@ const Specimens = (() => {
   function sync() {
     for (const c of ITEMS) {
       const row = rows[c.k];
-      if (c.o) $$('button', row).forEach((b, i) => { const on = String(c.o[i][0]) === String(S[c.k]); b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1; });
+      if (c.sw) {
+        const known = c.sw.some(([v]) => v === S[c.k]), pick = $('.pick', row);
+        $$('button', row).forEach((b, i) => { const on = c.sw[i][0] === S[c.k]; b.setAttribute('aria-checked', String(on)); b.tabIndex = on || (!known && i === 0) ? 0 : -1; });
+        pick.classList.toggle('on', !known); if (!known) { pick.style.setProperty('--sc', S[c.k]); $('input', pick).value = S[c.k]; }
+      } else if (c.o) $$('button', row).forEach((b, i) => { const on = String(c.o[i][0]) === String(S[c.k]); b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1; });
       else { const inp = $('input', row); if (Number(inp.value) !== S[c.k]) inp.value = S[c.k]; $('output', row).textContent = c.fmt(S[c.k]); }
       row.hidden = c.when ? !c.when(S) : false;
     }
@@ -1628,6 +1657,7 @@ const Specimens = (() => {
       stroke: pick(o('stroke').concat(['solid', 'solid'])), weight: Math.round((.6 + Math.random() * 1.4) * 10) / 10,
       edges: pick(o('edges').concat(['contours'])), hidden: Math.random() < .25, cast: Math.random() < .8,
       sun: Math.floor(Math.random() * 360), height: 22 + Math.floor(Math.random() * 46), ground: pick(['none', 'none', 'grid', 'disc']),
+      color: Math.random() < .35 ? pick(BY.color.sw.slice(1).map(x => x[0])) : 'ink',
       fill: pick(['paper', 'paper', 'tint', 'ink', 'clear']), view: pick(['axo', 'axo', 'persp', 'elev']), turn: S.turn, canvas: Math.random() < .25 ? 'dark' : 'light'
     };
     if (s.shade === 'ascii' && Math.random() < .5) s.stroke = 'glyph';
@@ -1654,9 +1684,10 @@ const Specimens = (() => {
       mode, grain: S.grain * dpr, den: S.density, graded: S.tone === 'graded', cast: S.cast, light: sun(),
       ground: { none: 0, grid: 1, disc: 2 }[S.ground], stroke: ['solid', 'dashed', 'dotted', 'sketch', 'glyph', 'none'].indexOf(S.stroke),
       weight: S.weight, edges: ['outline', 'contours', 'facets'].indexOf(S.edges), hidden: S.hidden, fill: ['paper', 'tint', 'ink', 'clear'].indexOf(S.fill),
-      bg: dark ? INK : PAPER, ink: dark ? PAPER : INK, shA: shA * (dark ? .9 : 1), dpr, charH: Math.round((5 + S.grain * 3) * dpr), shades: shade
+      bg: dark ? INK : PAPER, ink: dark ? PAPER : INK, shc: S.color === 'ink' ? null : hex(S.color), shA: S.color === 'ink' ? shA * (dark ? .9 : 1) : Math.min(1, shA + .24), dpr, charH: Math.round((5 + S.grain * 3) * dpr), shades: shade
     };
   }
+  function hex(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
   function sun() { const a = S.sun * Math.PI / 180, e = S.height * Math.PI / 180; return [Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a)]; }
   function play() { if (!raf) raf = requestAnimationFrame(frame); }
   function frame(now) {
