@@ -372,6 +372,21 @@ html.js .b.ph.in:active > .fill,html.js .b.ph.in:focus-visible > .fill,html.js .
 @media not all and (min-width:901px) and (min-height:540px) and (orientation:landscape){
   .gap{left:0;right:0;bottom:calc(100% + 1px);height:var(--chgap,64px);}
 }
+
+/* the header's line is the only one along the top: cells in the first row leave theirs off */
+.b.t0::before{display:none;}
+/* the foot: the window only marks where you are along the top edge; the chapter you are in carries the
+   tint, round its own name, with room either side */
+.ruler__win{background:none;}
+.ruler__list a{padding-left:.9em;padding-right:.9em;}
+.ruler__list a[aria-current="true"]{background:var(--wash);}
+@media (min-width:901px) and (min-height:540px) and (orientation:landscape){
+  html.js .ruler__list li:last-child a{left:0;right:auto;}
+}
+/* Hermes and his twin: on a phone the pair is as wide as the page, so the cell needs no more height than that */
+@media not all and (min-width:901px) and (min-height:540px) and (orientation:landscape){
+  .fig.twin{min-height:min(84vw,380px);}
+}
 </style>
 </head>
 <body>
@@ -956,7 +971,7 @@ const Arch = (() => {
       let n1 = r.n[0], n2 = r.n[1], d = dot(n1, n2);
       if (r.n.length > 2) { for (const m of r.n) { const dm = dot(n1, m); if (dm < d) { d = dm; n2 = m; } } }
       if (d > .9995) continue;                                 // flat: the seam between two triangles of one face
-      push(a, bb, n1, n2, d < cs ? 1 : 0);
+      push(a, bb, n1, n2, d < cs || b.wire ? 1 : 0);
     }
     for (let i = 0; i < b.L.length; i += 6) push([b.L[i], b.L[i + 1], b.L[i + 2]], [b.L[i + 3], b.L[i + 4], b.L[i + 5]], [0, 0, 0], [0, 0, 0], 3);
     return { P, N, E: new Float32Array(E), tris: nt, edges: E.length / 14, box: [x0, y0, z0, x1, y1, z1] };
@@ -1008,14 +1023,15 @@ const Arch = (() => {
   precision highp float;
   ${SHADOW}
   ${DITHER}
-  uniform vec3 uLd, uBg, uDc; uniform float uAmt;
+  uniform vec3 uLd, uBg, uDc, uFc; uniform float uAmt, uFa;
   in vec3 vN; in vec3 vS; out vec4 o;
   void main(){
     float nl = dot(normalize(vN), uLd);
     float face = smoothstep(-.03, .10, nl);                 // turned from the light: shade
     float occl = 1.0 - lit(vS);                             // the light blocked: shadow
     float t = max((1.0 - face) * .66, face * occl);
-    o = vec4(mix(uBg, uDc, dither(t * uAmt)), 1.0);
+    vec3 base = mix(uBg, uFc, uFa);                         // the page, or the building's own colour
+    o = vec4(mix(base, uDc, dither(t * uAmt)), 1.0);
   }`;
   const VS_GROUND = `#version 300 es
   in vec2 aP; uniform mat4 uM, uL; uniform vec3 uC; uniform float uR;
@@ -1075,6 +1091,46 @@ const Arch = (() => {
   precision highp float; uniform vec3 uInk; uniform float uLA; in float vA; out vec4 o;
   void main(){ float a = vA * uLA; o = vec4(uInk * a, a); }`;
 
+  // ── Hermes and his twin ──
+  // the marble: smooth, lit from between the two faces, its hollows darkened by the occlusion baked in
+  const VS_REAL = `#version 300 es
+  in vec3 aP; in vec3 aN; in float aO;
+  uniform mat4 uM; uniform mat3 uR; uniform float uY0, uY1;
+  out vec3 vN; out float vO; out float vH;
+  void main(){ vN = uR * aN; vO = aO; vH = (aP.y - uY0) / (uY1 - uY0); gl_Position = uM * vec4(aP, 1.0); }`;
+  const FS_REAL = `#version 300 es
+  precision highp float;
+  uniform vec3 uL, uV, uLo, uHi, uBg; uniform float uProg;
+  in vec3 vN; in float vO; in float vH; out vec4 o;
+  void main(){
+    vec3 n = normalize(vN);
+    float k = dot(n, uL);
+    float diff = mix(max(k, 0.0), clamp((k + .4) / 1.4, 0.0, 1.0), .55);
+    float sky = .5 + .5 * n.y;
+    vec3 h = normalize(uL + uV);
+    float spec = pow(max(dot(n, h), 0.0), 36.0) * .16;
+    float ao = mix(.42, 1.0, vO);
+    float s = clamp((.06 + .80 * diff + .14 * sky) * ao + spec * ao, 0.0, 1.0);
+    s = pow(s, 1.15);
+    vec3 c = mix(uLo, uHi, s);
+    float t = clamp((uProg * 1.35 - vH) / .35, 0.0, 1.0);    // it rises out of the page, from the cut of the neck up
+    o = vec4(mix(uBg, c, t * t * (3.0 - 2.0 * t)), 1.0);
+  }`;
+  // the twin: flat facets in the page colour, shaded in dots
+  const VS_DIG = `#version 300 es
+  in vec3 aP; in vec3 aN; uniform mat4 uM; uniform mat3 uR; out vec3 vN;
+  void main(){ vN = uR * aN; gl_Position = uM * vec4(aP, 1.0); }`;
+  const FS_DIG = `#version 300 es
+  precision highp float;
+  ${DITHER}
+  uniform vec3 uL, uBg, uDc; uniform float uAmt;
+  in vec3 vN; out vec4 o;
+  void main(){
+    float k = dot(normalize(vN), uL);
+    float t = clamp(.78 - k * .9, 0.0, 1.0);
+    o = vec4(mix(uBg, uDc, dither(t * t * uAmt)), 1.0);
+  }`;
+
   function prog(gl, vs, fs) {
     const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
     const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
@@ -1088,7 +1144,7 @@ const Arch = (() => {
   function Renderer(canvas) {
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true, depth: true, stencil: false, powerPreference: 'high-performance' });
     if (!gl) return null;
-    const P = { depth: prog(gl, VS_DEPTH, FS_DEPTH), fill: prog(gl, VS_FILL, FS_FILL), ground: prog(gl, VS_GROUND, FS_GROUND), line: prog(gl, VS_LINE, FS_LINE), patch: prog(gl, VS_PATCH, FS_PATCH) };
+    const P = { depth: prog(gl, VS_DEPTH, FS_DEPTH), fill: prog(gl, VS_FILL, FS_FILL), ground: prog(gl, VS_GROUND, FS_GROUND), line: prog(gl, VS_LINE, FS_LINE), patch: prog(gl, VS_PATCH, FS_PATCH), real: prog(gl, VS_REAL, FS_REAL), dig: prog(gl, VS_DIG, FS_DIG) };
     const SM = 2048;
     const slots = [];   // a few shadow maps, kept for the drawings most recently on screen
     function slot(fig) {
@@ -1169,6 +1225,7 @@ const Arch = (() => {
       gl.enable(gl.DEPTH_TEST);
       for (const it of list) {
         if (it.patch) continue;
+        if (it.twin) { drawTwin(it, W, H, col); continue; }
         const fig = it.fig; if (!fig.gpu) upload(fig);
         const Lv = fig.lv || (fig.lv = lightOf(fig));
         // the shadow map, drawn once per building while it holds a slot
@@ -1203,6 +1260,7 @@ const Arch = (() => {
         gl.uniformMatrix4fv(F.u.uM, false, M); gl.uniformMatrix4fv(F.u.uL, false, Lv.M);
         gl.uniform1f(F.u.uNB, Lv.R * .004); gl.uniform1i(F.u.uS, 0); gl.uniform1f(F.u.uTx, tx * 1.1);
         gl.uniform3fv(F.u.uLd, fig.light); gl.uniform3fv(F.u.uBg, col.bg); gl.uniform3fv(F.u.uDc, col.dc); gl.uniform1f(F.u.uAmt, sh);
+        gl.uniform3fv(F.u.uFc, col.face || col.bg); gl.uniform1f(F.u.uFa, (col.faceAmt || 0) * sh);
         gl.uniform4f(F.u.uVp, x, H - y - h, w, h); gl.uniform1f(F.u.uDot, it.dot || 2); gl.uniform1f(F.u.uDen, col.den ?? .6);
         gl.bindVertexArray(fig.gpu.fill); gl.drawArrays(gl.TRIANGLES, 0, fig.gpu.n);
         gl.disable(gl.POLYGON_OFFSET_FILL);
@@ -1226,6 +1284,74 @@ const Arch = (() => {
         gl.depthMask(true);
       }
       gl.bindVertexArray(null);
+    }
+
+    // ── Hermes, in marble on the left, facing his twin, in facets and dots, on the right ──
+    function uploadTwin(T) {
+      const mk = fn => { const v = gl.createVertexArray(); gl.bindVertexArray(v); fn(); gl.bindVertexArray(null); return v; };
+      const buf = (data, target = gl.ARRAY_BUFFER) => { const b = gl.createBuffer(); gl.bindBuffer(target, b); gl.bufferData(target, data, gl.STATIC_DRAW); return b; };
+      const at = (loc, b, size) => { if (loc < 0) return; gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0); };
+      const r = T.real, pb = buf(r.pos), nb = buf(r.nrm), ob = buf(r.ao);
+      T.gReal = mk(() => { at(P.real.a('aP'), pb, 3); at(P.real.a('aN'), nb, 3); at(P.real.a('aO'), ob, 1); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf(r.idx, gl.ELEMENT_ARRAY_BUFFER)); });
+      const m = T.dig.mesh, dp = buf(m.P), dn = buf(m.N);
+      T.gDig = mk(() => { at(P.dig.a('aP'), dp, 3); at(P.dig.a('aN'), dn, 3); });
+      upload(T.dig);                                                     // its edges, through the buildings' own pen
+    }
+    function drawTwin(it, W, H, col) {
+      const T = it.twin; if (!T.gReal) uploadTwin(T);
+      const [x, y, w, h] = it.rect, [cx, cy, cw, ch] = it.clip;
+      if (cw <= 0 || ch <= 0) return;
+      gl.viewport(x, H - y - h, w, h);
+      gl.enable(gl.SCISSOR_TEST); gl.scissor(cx, H - cy - ch, cw, ch);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LESS); gl.disable(gl.BLEND);
+      // a camera straight on, a little above
+      const B = basis(0, it.el || 0), k = it.scale, hw = w / 2 * k, hh = h / 2 * k;
+      const eye = add([0, T.cy, 0], scl(B.D, 6));
+      const PV = mul(ortho(hw, hh, .5, 12), view(eye, B.R, B.U, B.D));
+      if (it.off) { PV[12] += 2 * it.off[0] / w; PV[13] += 2 * it.off[1] / h; }
+      // a head's place: turned about its own neck, then set to its side
+      const place = (side, yaw, pitch) => {
+        const cy_ = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+        // R = Ry(yaw) · Rx(pitch), column-major 3×3
+        const R = new Float32Array([cy_, 0, -sy, sy * sp, cp, cy_ * sp, sy * cp, -sp, cy_ * cp]);
+        const pv = T.pivot, t = [side * T.sep, 0, 0];
+        const M4 = new Float32Array([R[0], R[1], R[2], 0, R[3], R[4], R[5], 0, R[6], R[7], R[8], 0, 0, 0, 0, 1]);
+        const o = [t[0] + pv[0] - (R[0] * pv[0] + R[3] * pv[1] + R[6] * pv[2]), t[1] + pv[1] - (R[1] * pv[0] + R[4] * pv[1] + R[7] * pv[2]), t[2] + pv[2] - (R[2] * pv[0] + R[5] * pv[1] + R[8] * pv[2])];
+        M4[12] = o[0]; M4[13] = o[1]; M4[14] = o[2];
+        // the eye's direction and the light, in the head's own frame (for the pen's outline test)
+        const inv = v => [R[0] * v[0] + R[1] * v[1] + R[2] * v[2], R[3] * v[0] + R[4] * v[1] + R[5] * v[2], R[6] * v[0] + R[7] * v[1] + R[8] * v[2]];
+        return { M: mul(PV, M4), R, vLocal: inv(B.D) };
+      };
+      const yaw = it.yaw || 0, pitch = it.pitch || 0;
+      // the light sits between them, a little above and toward us: each is lit full in the face
+      const lightL = norm([.78, .5, .36]), lightR = [-lightL[0], lightL[1], lightL[2]];
+      // the marble
+      const A = place(-1, Math.PI / 2 + yaw, pitch);
+      const Rp = P.real; gl.useProgram(Rp.p);
+      gl.uniformMatrix4fv(Rp.u.uM, false, A.M); gl.uniformMatrix3fv(Rp.u.uR, false, A.R);
+      gl.uniform1f(Rp.u.uY0, T.y0); gl.uniform1f(Rp.u.uY1, T.y1);
+      gl.uniform3fv(Rp.u.uL, lightL); gl.uniform3fv(Rp.u.uV, B.D);
+      gl.uniform3fv(Rp.u.uLo, col.marbleLo || [.27, .265, .258]); gl.uniform3fv(Rp.u.uHi, col.bg); gl.uniform3fv(Rp.u.uBg, col.bg);
+      gl.uniform1f(Rp.u.uProg, it.alpha < 1 ? it.alpha : Math.min(1, it.prog * 1.05));
+      gl.bindVertexArray(T.gReal); gl.drawElements(gl.TRIANGLES, T.real.idx.length, gl.UNSIGNED_SHORT, 0);
+      // the twin: facets shaded in dots, then every edge drawn in
+      const D = place(1, -Math.PI / 2 - yaw, pitch);
+      const shade = Math.min(1, Math.max(0, (it.prog - .55) / .45)), sh = shade * shade * (3 - 2 * shade) * (it.alpha ?? 1);
+      gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 1);
+      const Dp = P.dig; gl.useProgram(Dp.p);
+      gl.uniformMatrix4fv(Dp.u.uM, false, D.M); gl.uniformMatrix3fv(Dp.u.uR, false, D.R);
+      gl.uniform3fv(Dp.u.uL, lightR); gl.uniform3fv(Dp.u.uBg, col.bg); gl.uniform3fv(Dp.u.uDc, col.dc);
+      gl.uniform1f(Dp.u.uAmt, sh); gl.uniform4f(Dp.u.uVp, x, H - y - h, w, h); gl.uniform1f(Dp.u.uDot, it.dot || 2); gl.uniform1f(Dp.u.uDen, col.den ?? .6);
+      gl.bindVertexArray(T.gDig); gl.drawArrays(gl.TRIANGLES, 0, T.dig.mesh.P.length / 3);
+      gl.disable(gl.POLYGON_OFFSET_FILL);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); gl.depthFunc(gl.LEQUAL);
+      const L = P.line; gl.useProgram(L.p);
+      gl.uniformMatrix4fv(L.u.uM, false, D.M); gl.uniform3fv(L.u.uV, D.vLocal); gl.uniform2f(L.u.uRes, w, h);
+      gl.uniform1f(L.u.uProg, it.prog); gl.uniform1f(L.u.uW, it.lw * .8); gl.uniform1f(L.u.uBias, .0016);
+      gl.uniform3fv(L.u.uInk, col.ink); gl.uniform1f(L.u.uLA, (col.la ?? 1) * .62 * (it.alpha ?? 1));
+      gl.bindVertexArray(T.dig.gpu.line); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, T.dig.gpu.e);
+      gl.depthMask(true); gl.disable(gl.BLEND);
     }
 
     // world units per pixel: the isometric view fills its share of the cell, and no turn or plan
@@ -1267,10 +1393,40 @@ const Arch = (() => {
     const sample = pts.map(p => sub(p, center));
     return { mesh, sample, center, light: norm(opt.light || LIGHT), radius: Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2 };
   }
+  // ── The twins' data: two meshes of one head, packed small; unpacked once, off the main path ──
+  async function twins(b64, meta) {
+    const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const raw = new Uint8Array(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+    let o = 0;
+    const take = (n, T, sz) => { const a = new T(raw.buffer.slice(o, o + n * sz)); o += n * sz; return a; };
+    const { lo, hi, nr, fr, nd, fd } = meta;
+    const deq = q => { const p = new Float32Array(q.length); for (let i = 0; i < q.length; i++) { const k = i % 3; p[i] = lo[k] + q[i] / 65535 * (hi[k] - lo[k]); } return p; };
+    const pos = deq(take(nr * 3, Uint16Array, 2)), aoB = take(nr, Uint8Array, 1), nq = take(nr * 3, Int8Array, 1), idx = take(fr * 3, Uint16Array, 2);
+    const dpos = deq(take(nd * 3, Uint16Array, 2)), didx = take(fd * 3, Uint16Array, 2);
+    // the marble's normals, taken from the sculpture's field when it was cut
+    const nrm = new Float32Array(nr * 3);
+    for (let i = 0; i < nr; i++) { const x = nq[i * 3] / 127, y = nq[i * 3 + 1] / 127, z = nq[i * 3 + 2] / 127, l = Math.hypot(x, y, z) || 1; nrm[i * 3] = x / l; nrm[i * 3 + 1] = y / l; nrm[i * 3 + 2] = z / l; }
+    const ao = new Float32Array(nr); for (let i = 0; i < nr; i++) ao[i] = aoB[i] / 255;
+    // the twin: flat facets, every edge kept
+    const b = { P: [], N: [], F: [], L: [], wire: true };
+    for (let t = 0; t < fd; t++) {
+      const A = [dpos[didx[t * 3] * 3], dpos[didx[t * 3] * 3 + 1], dpos[didx[t * 3] * 3 + 2]];
+      const Bv = [dpos[didx[t * 3 + 1] * 3], dpos[didx[t * 3 + 1] * 3 + 1], dpos[didx[t * 3 + 1] * 3 + 2]];
+      const C = [dpos[didx[t * 3 + 2] * 3], dpos[didx[t * 3 + 2] * 3 + 1], dpos[didx[t * 3 + 2] * 3 + 2]];
+      const f = norm(cross(sub(Bv, A), sub(C, A)));
+      b.P.push(...A, ...Bv, ...C); b.N.push(...f, ...f, ...f); b.F.push(...f);
+    }
+    const mesh = compile(b);
+    const y0 = mesh.box[1], y1 = mesh.box[4];
+    // the pair: each turned about its neck, set either side of the middle with a little air between the noses
+    const pivot = [0, -.12, -.05], tip = hi[2] - pivot[2];
+    return { real: { pos, nrm, ao, idx }, dig: { mesh }, pivot, sep: tip + .09, y0, y1, cy: (y0 + y1) / 2, back: pivot[2] - lo[2] };
+  }
+
   // the sun: behind and to the right of the isometric eye, so shadows fall forward and to the left
   const LIGHT = [.355, .616, -.70];
 
-  return { Build, figure, Renderer, basis, ISO: { az: Math.PI / 4, el: Math.asin(1 / Math.sqrt(3)) } };
+  return { Build, figure, twins, Renderer, basis, ISO: { az: Math.PI / 4, el: Math.asin(1 / Math.sqrt(3)) } };
 })();
 
 /* ─────────────────────────────────────────────────────────────
@@ -1764,15 +1920,31 @@ const Models = (() => {
       spacer.style.height = Math.round(maxX + innerHeight) + 'px';
       starts = chapters.map(c => c.offsetLeft); pageStarts = pages.map(p => p.offsetLeft);
       rlinks.forEach((a, i) => { const li = a.parentElement; li.style.left = (starts[i] / TW * 100) + '%'; li.style.width = (((starts[i + 1] ?? TW) - starts[i]) / TW * 100) + '%'; });
+      placeLabels();
       ruler.style.setProperty('--cols', Math.round(TW / (V.w / 12)));
       rwin.style.width = (V.w / TW * RW).toFixed(1) + 'px';
     } else {
       spacer.style.height = ''; track.style.transform = ''; X = 0; V = { x: 0, y: 0, w: innerWidth, h: innerHeight };
-      rlinks.forEach(a => { a.parentElement.style.left = ''; a.parentElement.style.width = ''; });
+      rlinks.forEach(a => { a.parentElement.style.left = ''; a.parentElement.style.width = ''; a.style.left = ''; });
     }
+    pages.forEach(pg => { const ch = pg.closest('.ch'), top = ch.getBoundingClientRect().top; $$(':scope > .b', pg).forEach(b => b.classList.toggle('t0', b.getBoundingClientRect().top - top < 1)); });
     figs.forEach(f => { f.kw = 0; });
     observe();
     current = -1; play();
+  }
+  // the chapter names along the foot: each starts where its chapter starts, its words lined up with the
+  // cells' own padding; none closer to the next than a clear gap, none nearer the edges than the padding
+  function placeLabels() {
+    const pad = parseFloat(getComputedStyle(cells[0] || document.body).paddingLeft) || 20;
+    const px = parseFloat(getComputedStyle(rlinks[0]).paddingLeft) || 10, gap = 6;
+    const w = rlinks.map(a => a.offsetWidth), n = rlinks.length, x = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const want = starts[i] / TW * RW + pad - px;
+      x[i] = i ? Math.max(want, x[i - 1] + w[i - 1] + gap) : Math.max(want, pad - px);
+    }
+    x[n - 1] = Math.min(x[n - 1], RW - pad + px - w[n - 1]);
+    for (let i = n - 2; i >= 0; i--) x[i] = Math.min(x[i], x[i + 1] - w[i] - gap);
+    rlinks.forEach((a, i) => { a.style.left = (x[i] - starts[i] / TW * RW).toFixed(1) + 'px'; });
   }
   // if any cell's words would not fit, the type steps down a little everywhere, until they do
   function fitType() {
@@ -1788,11 +1960,19 @@ const Models = (() => {
   let R = null;
   try { R = typeof Arch !== 'undefined' && Arch.Renderer(canvas); } catch (e) { console.warn('drawings unavailable', e); }
   if (!R) root.classList.add('no-gl');
-  const figs = $$('[data-fig]').map(node => ({
-    node, art: $('.art', node), hud: $('.hud', node), name: node.dataset.fig, btns: $$('[data-view]', node),
-    fig: null, k: 0, kw: 0, kh: 0, az: ISO.az, elv: ISO.el, vaz: 0, taz: null, tel: null, va: 0, ve: 0,
-    prog: reduce ? 1 : 0, alpha: reduce ? 0 : 1, drag: null, spin: 0, hold: 0, over: false
-  }));
+  const figs = $$('[data-fig]').map(node => {
+    const twin = node.dataset.fig === 'hermes';
+    return {
+      node, art: $('.art', node), hud: $('.hud', node), name: node.dataset.fig, btns: $$('[data-view]', node), twin,
+      fig: null, k: 0, kw: 0, kh: 0, az: twin ? 0 : ISO.az, elv: twin ? 0 : ISO.el, vaz: 0, taz: null, tel: null, va: 0, ve: 0,
+      prog: reduce ? 1 : 0, alpha: reduce ? 0 : 1, drag: null, spin: 0, hold: 0, over: false, ph: 0
+    };
+  });
+  // Hermes and his twin: two meshes of one head, unpacked once the page is up
+  let twinData = null;
+  if (R && figs.some(f => f.twin) && typeof HERMES !== 'undefined' && 'DecompressionStream' in window) {
+    Arch.twins(HERMES.b64, HERMES.meta).then(T => { twinData = T; moved = true; play(); }).catch(e => console.warn('twins unavailable', e));
+  }
   const near = (a, t, p) => t + p * Math.round((a - t) / p);   // the same view, the shortest way round
   const VIEWS = {
     iso: f => [near(f.az, ISO.az, Math.PI / 2), ISO.el],
@@ -1801,7 +1981,7 @@ const Models = (() => {
   };
   function pressed(f, v) { f.btns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v))); }
   function setView(f, v, now) {
-    const [a, e] = VIEWS[v](f);
+    const [a, e] = f.twin ? [near(f.az, 0, Math.PI * 2), 0] : VIEWS[v](f);
     pressed(f, v); f.vaz = 0;
     if (now || reduce) { f.az = a; f.elv = e; f.taz = f.tel = null; }
     else { f.taz = a; f.tel = e; }
@@ -1834,7 +2014,8 @@ const Models = (() => {
     for (const f of figs) {
       const r = f.node.getBoundingClientRect();
       const close = wide ? (r.right > x0 - V.w * .5 && r.left < x1 + V.w * .9) : (r.bottom > -innerHeight * .5 && r.top < innerHeight * 1.7);
-      if (close && !f.fig && !built) { f.fig = Arch.figure(Models[f.name]); built = true; busy = true; }
+      if (f.twin) { if (twinData && !f.fig) f.fig = twinData; }
+      else if (close && !f.fig && !built) { f.fig = Arch.figure(Models[f.name]); built = true; busy = true; }
       if (!f.fig || r.right <= x0 || r.left >= x1 || r.bottom <= y0 || r.top >= y1) continue;
       // drawn as it comes in: the further the cell is into view, the further the drawing has got
       const enter = clamp(wide ? (x1 - r.left) / (r.width * .72 + V.w * .06) : (y1 - r.top) / (r.height * .72 + innerHeight * .06), 0, 1);
@@ -1846,8 +2027,29 @@ const Models = (() => {
       const want = idle ? 1 : 0;
       f.spin += (want - f.spin) * (1 - Math.exp(-dt * 1.1));
       if (Math.abs(want - f.spin) < .002) f.spin = want;
-      if (f.spin > 0) { f.az -= f.spin * .07 * dt; spinning = true; }
+      if (f.spin > 0) { if (!f.twin) f.az -= f.spin * .07 * dt; spinning = true; }
       if (f.spin !== want) busy = true;
+      if (f.twin) {
+        // left alone, the two heads turn a little this way and that, always as each other's reflection
+        f.ph += dt * .42 * f.spin;
+        const a = f.art.getBoundingClientRect(), hb = f.hud.getBoundingClientRect();
+        const fx = a.left, fy = a.top, fw = a.width, fh = fw > (hb.top - a.top) * 1.7 ? a.height : Math.max(40, hb.top - a.top - 6);
+        const cx = r.left + 1, cy = r.top + 1, cw = r.width - 1, ch = r.height - 1;
+        const T = f.fig;
+        if (f.kw !== Math.round(fw) || f.kh !== Math.round(fh)) {
+          f.kw = Math.round(fw); f.kh = Math.round(fh);
+          const sw = 2 * (T.sep + T.back) + .18, sh = (T.y1 - T.y0) * 1.04;
+          f.k = Math.max(sw / (fw * dpr * .96), sh / (fh * dpr * .94));
+        }
+        const pass = reduce ? 0 : (wide ? ((r.left + r.width / 2) - (x0 + V.w / 2)) / V.w : ((r.top + r.height / 2) - innerHeight / 2) / innerHeight);
+        const clip = [Math.max(cx, x0), Math.max(cy, y0)]; clip.push(Math.min(cx + cw, x1) - clip[0], Math.min(cy + ch, y1) - clip[1]);
+        list.push({
+          twin: T, rect: [Math.round(cx * dpr), Math.round(cy * dpr), Math.round(cw * dpr), Math.round(ch * dpr)], clip: clip.map(v => Math.round(v * dpr)),
+          yaw: f.az + Math.sin(f.ph) * .3 - pass * .25, pitch: f.elv + Math.sin(f.ph * .7 + 1) * .05 * f.spin, el: .06, scale: f.k, prog: f.prog,
+          lw: dpr * (fw < 420 ? .85 : 1), off: [((fx + fw / 2) - (cx + cw / 2)) * dpr, -((fy + fh / 2) - (cy + ch / 2)) * dpr], alpha: f.alpha, dot: Math.max(2, Math.round(1.5 * dpr))
+        });
+        continue;
+      }
       // the drawing sits inside its cell: fitted to the space above the caption, never cropped
       const a = f.art.getBoundingClientRect(), hb = f.hud.getBoundingClientRect();
       const fx = a.left, fy = a.top, fw = a.width;
@@ -1959,7 +2161,7 @@ const Models = (() => {
     const a = e.target.closest('a[href^="#"]'); if (!a) return;
     const id = a.getAttribute('href').slice(1), el = id && document.getElementById(id); if (!el) return;
     e.preventDefault(); goTo(el, e.detail !== 0); history.replaceState(null, '', '#' + id);
-    if (e.detail === 0) { const h = el.querySelector('h1,h2,[tabindex]') || el; if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+    if (e.detail === 0) { const h = el.querySelector('h1,h2') || el.querySelector('[tabindex]') || el; if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
   });
   // the keyboard: left and right step a page at a time
   addEventListener('keydown', e => {
@@ -1970,13 +2172,18 @@ const Models = (() => {
     const s = e.key === 'ArrowRight' ? pageStarts.find(p => p > X + 4) ?? maxX : [...pageStarts].reverse().find(p => p < X - 4) ?? 0;
     scrollTo({ top: Math.min(maxX, s), behavior: reduce ? 'auto' : 'smooth' });
   });
-  // tabbing to something off the sheet brings its cell into view, without a glide
+  // tabbing to something off the sheet brings its cell into view, without a glide. A click also focuses
+  // what it lands on (a drawing, say), but that is already in view: the sheet stays where it is
+  let pressedAt = -1e9;
+  addEventListener('pointerdown', () => { pressedAt = performance.now(); }, true);
   document.addEventListener('focusin', e => {
-    if (!wide || !track.contains(e.target)) return;
-    const r = e.target.getBoundingClientRect();
-    if (r.left >= V.x + 4 && r.right <= V.x + V.w - 4) return;
-    const cell = (e.target.closest('.b') || e.target).getBoundingClientRect();
-    scrollTo({ top: clamp(X + cell.left - V.x - V.w * .08, 0, maxX), behavior: 'auto' });
+    if (!wide || !track.contains(e.target) || performance.now() - pressedAt < 800) return;
+    const r = e.target.getBoundingClientRect(), L = V.x - 1, Rt = V.x + V.w + 1;
+    if (r.left >= L && r.right <= Rt) return;
+    const cell = (e.target.closest('.b') || e.target).getBoundingClientRect(), m = V.w * .08;
+    // the shortest way in, never past the cell's own left edge
+    const to = r.left < L ? X + cell.left - V.x - m : X + Math.min(r.right - (V.x + V.w) + m, cell.left - V.x - m);
+    scrollTo({ top: clamp(to, 0, maxX), behavior: 'auto' });
   });
   // the ruler: press anywhere along it to go there; drag to scrub
   rbar.addEventListener('pointerdown', e => {
@@ -2002,7 +2209,7 @@ const Models = (() => {
       const dx = e.clientX - d.x, dy = e.clientY - d.y;
       if (!d.on) { if (Math.hypot(dx, dy) < 4) return; d.on = true; n.setPointerCapture(e.pointerId); n.classList.add('drag', 'turned'); root.classList.add('turned'); pressed(f, null); }
       const now = performance.now(), dt = Math.max(1, now - d.t) / 1000;
-      f.az -= dx * .0068; f.elv = clamp(f.elv + dy * .0052, 0, Math.PI / 2);
+      f.az -= dx * .0068; f.elv = f.twin ? clamp(f.elv + dy * .004, -.32, .32) : clamp(f.elv + dy * .0052, 0, Math.PI / 2);
       d.v = d.v * .6 + (-dx * .0068 / dt) * .4; d.x = e.clientX; d.y = e.clientY; d.t = now;
       moved = true; play();
     });
@@ -2029,6 +2236,8 @@ const Models = (() => {
     });
   });
 
+  try { localStorage.removeItem('woza-lines'); localStorage.removeItem('woza-sand'); } catch (e) {}   // the old test switches, gone
+
   // ── Versions ──
   const ver = $('.ver'), vb = $('.ver .pill');
   const setVer = open => { ver.classList.toggle('open', open); vb.setAttribute('aria-expanded', String(open)); };
@@ -2045,7 +2254,7 @@ const Models = (() => {
   requestAnimationFrame(() => { $$('.top .b').forEach(b => b.classList.add('in')); ruler.classList.add('in'); });
   // the other buildings are put together in idle moments, one at a time, so none is built mid-scroll
   const idle = window.requestIdleCallback || (fn => setTimeout(() => fn({ timeRemaining: () => 8 }), 200));
-  const queue = figs.slice();
+  const queue = figs.filter(f => !f.twin);
   (function next() { idle(() => { const f = queue.shift(); if (!f) return; if (!f.fig && R) f.fig = Arch.figure(Models[f.name]); next(); }, { timeout: 1500 }); })();
   document.fonts && document.fonts.ready.then(() => { const k = current; layout(); if (k > 0) goTo(chapters[k], false); });
   window.Portico = { figs, layout, state: () => ({ X, maxX, TW, wide, current }) };
